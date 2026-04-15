@@ -38,27 +38,45 @@ function generateSampleCSV() {
 }
 
 // ─── CSV Parser ───
-const parseCSV = (file) => {
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    complete: (res) => {
-      const rawRows = res.data;
+function parseCSV(csvText) {
+  const lines = csvText.trim().split("\n");
+  if (lines.length < 2) return { data: null, error: "CSV is empty" };
+  const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+  const missing = ["district_name", "month", "disease_type", "cases"].filter(r => !headers.includes(r));
+  if (missing.length) return { data: null, error: `Missing columns: ${missing.join(", ")}` };
 
-      // 🔹 KEEP YOUR EXISTING LOGIC HERE
-      // (this is whatever you already do to build charts / district data)
-      const processed = buildDistrictData(rawRows); 
-      // 👆 replace with your actual function / logic
+  const rows = []; const errors = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = lines[i].split(",").map(v => v.trim());
+    const row = {}; headers.forEach((h, j) => row[h] = vals[j] || "");
+    if (!row.district_name || !row.disease_type) { errors.push(`Row ${i + 1}: missing district/disease`); continue; }
+    row.cases = parseInt(row.cases) || 0;
+    row.screening_target = parseInt(row.screening_target) || 0;
+    row.screening_achieved = parseInt(row.screening_achieved) || 0;
+    row.budget_allocated_lakhs = parseFloat(row.budget_allocated_lakhs) || 0;
+    row.budget_utilized_lakhs = parseFloat(row.budget_utilized_lakhs) || 0;
+    row.hr_sanctioned = parseInt(row.hr_sanctioned) || 0;
+    row.hr_in_position = parseInt(row.hr_in_position) || 0;
+    row.drug_availability_pct = parseFloat(row.drug_availability_pct) || 0;
+    rows.push(row);
+  }
 
-      setResult({
-        data: processed,     // ✅ UI data (unchanged)
-        rawRows: rawRows,    // 🔥 ADD THIS (important)
-        rowCount: rawRows.length,
-        districtCount: new Set(rawRows.map(r => r.district_name)).size,
-      });
-    },
+  const districtMap = {};
+  rows.forEach(r => {
+    const key = r.district_name;
+    if (!districtMap[key]) {
+      const meta = DISTRICTS_META.find(m => m.name.toLowerCase() === key.toLowerCase()) || { id: Object.keys(districtMap).length + 100, name: key, zone: "Other", population: 0 };
+      districtMap[key] = { ...meta, name: key, _cases: 0, _scrT: 0, _scrA: 0, _budA: 0, _budU: 0, _hrS: 0, _hrF: 0, _drugSum: 0, _drugN: 0, _disease: {}, _month: {}, _monthScr: {} };
+    }
+    const d = districtMap[key];
+    d._cases += r.cases; d._scrT += r.screening_target; d._scrA += r.screening_achieved;
+    d._budA += r.budget_allocated_lakhs; d._budU += r.budget_utilized_lakhs;
+    d._hrS += r.hr_sanctioned; d._hrF += r.hr_in_position;
+    if (r.drug_availability_pct) { d._drugSum += r.drug_availability_pct; d._drugN++; }
+    d._disease[r.disease_type] = (d._disease[r.disease_type] || 0) + r.cases;
+    if (r.month) { d._month[r.month] = (d._month[r.month] || 0) + r.cases; d._monthScr[r.month] = (d._monthScr[r.month] || 0) + r.screening_achieved; }
   });
-};
 
   const data = Object.values(districtMap).map(d => ({
     id: d.id, name: d.name, zone: d.zone, population: d.population,
@@ -287,32 +305,47 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
   const handle = (file) => { if (!file) return; const r = new FileReader(); r.onload = e => { const res = parseCSV(e.target.result); setResult(res); }; r.readAsText(file); };
 
 const confirm = async () => {
-  if (!result?.rawRows || result.rawRows.length === 0) {
-    alert("No data to upload");
-    return;
-  }
+  if (!result?.data) return;
+
   setImporting(true);
+
   try {
-    // 🔥 send RAW CSV rows only
+    const payload = result.data.flatMap(d => {
+      return d.monthlyTrend.map(m => ({
+        district_name: d.name,
+        month: m.month,
+        year: YEAR,
+        disease_type: d.disease_type,
+        cases: m.cases,
+        screening_target: d.screeningTarget,
+        screening_achieved: d.screeningAchieved,
+        budget_allocated_lakhs: d.budgetAllocated / 100000,
+        budget_utilized_lakhs: (d.budgetAllocated * d.budgetUtilized) / 100000,
+        hr_sanctioned: d.hrSanctioned,
+        hr_in_position: Math.round(d.hrSanctioned * d.hrFilled),
+        drug_availability_pct: parseFloat(d.drugAvailability),
+      }));
+    });
     const res = await fetch("/api/aggregate/upload", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        rows: result.rawRows,
-      }),
+      body: JSON.stringify({ rows: payload }),
     });
     const json = await res.json();
-    if (!res.ok) {
-      throw new Error(json.error || "Upload failed");
-    }
-    // ✅ keep your UI working
+    if (!res.ok) throw new Error(json.error);
     onUpdate(result.data);
-    alert(`Uploaded ${json.inserted} rows`);
-  } catch (err) {
-    console.error("UPLOAD ERROR:", err);
-    alert(err.message);
+    onHistory({
+      date: new Date().toISOString(),
+      rows: payload.length,
+      districts: result.districtCount,
+      mode: "append",
+    });
+    alert(`Uploaded ${payload.length} rows`);
+  } catch (e) {
+    console.error(e);
+    alert("Upload failed");
   }
   setImporting(false);
   setResult(null);
