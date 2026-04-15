@@ -52,7 +52,6 @@ function parseCSV(csvText) {
     const row = {}; headers.forEach((h, j) => row[h] = vals[j] || "");
     if (!row.district_name || !row.disease_type) { errors.push(`Row ${i + 1}: missing district/disease`); continue; }
     row.year = parseInt(row.year) || 2026;
-    row.month = parseInt(row.month) ;
     row.cases = parseInt(row.cases) || 0;
     row.screening_target = parseInt(row.screening_target) || 0;
     row.screening_achieved = parseInt(row.screening_achieved) || 0;
@@ -95,7 +94,7 @@ function parseCSV(csvText) {
     quarterlyBudget: QUARTERS.map(q => ({ quarter: q, allocated: Math.round(d._budA * 100000 / 4), utilized: Math.round(d._budU * 100000 / 4) })),
   }));
 
-  return { data, error: null, warnings: errors, rowCount: rows.length, districtCount: data.length };
+  return { data, rows, error: null, warnings: errors, rowCount: rows.length, districtCount: data.length };
 }
 
 // ─── Seed Data ───
@@ -307,27 +306,26 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
   const handle = (file) => { if (!file) return; const r = new FileReader(); r.onload = e => { const res = parseCSV(e.target.result); setResult(res); }; r.readAsText(file); };
 
 const confirm = async () => {
-  if (!result?.data) return;
+  if (!result?.rows?.length) return;
 
   setImporting(true);
 
   try {
-    const payload = result.data.flatMap(d => {
-      return d.monthlyTrend.map(m => ({
-        district_name: d.name,
-        month: m.month,
-        year: YEAR,
-        disease_type: d.disease_type,
-        cases: m.cases,
-        screening_target: d.screeningTarget,
-        screening_achieved: d.screeningAchieved,
-        budget_allocated_lakhs: d.budgetAllocated / 100000,
-        budget_utilized_lakhs: (d.budgetAllocated * d.budgetUtilized) / 100000,
-        hr_sanctioned: d.hrSanctioned,
-        hr_in_position: Math.round(d.hrSanctioned * d.hrFilled),
-        drug_availability_pct: parseFloat(d.drugAvailability),
-      }));
-    });
+    // Send the raw parsed CSV rows directly — no re-expansion
+    const payload = result.rows.map(r => ({
+      district_name: r.district_name,
+      month: r.month,
+      year: r.year || YEAR,
+      disease_type: r.disease_type,
+      cases: r.cases,
+      screening_target: r.screening_target,
+      screening_achieved: r.screening_achieved,
+      budget_allocated_lakhs: r.budget_allocated_lakhs,
+      budget_utilized_lakhs: r.budget_utilized_lakhs,
+      hr_sanctioned: r.hr_sanctioned,
+      hr_in_position: r.hr_in_position,
+      drug_availability_pct: r.drug_availability_pct,
+    }));
     const res = await fetch("/api/aggregate/upload", {
       method: "POST",
       headers: {
