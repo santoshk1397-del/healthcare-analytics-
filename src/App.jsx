@@ -300,7 +300,6 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
   const [dragOver, setDragOver] = useState(false);
   const [result, setResult] = useState(null);
   const [importing, setImporting] = useState(false);
-  const [mode, setMode] = useState("replace");
   const fileRef = useRef(null);
 
   const handle = (file) => { if (!file) return; const r = new FileReader(); r.onload = e => { const res = parseCSV(e.target.result); setResult(res); }; r.readAsText(file); };
@@ -372,9 +371,6 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
           </table>
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 18, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 3, background: P.surfaceAlt, borderRadius: 8, padding: 3 }}>
-            {["replace", "append"].map(m => <button key={m} onClick={() => setMode(m)} style={{ padding: "8px 16px", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", background: mode === m ? P.accent : "transparent", color: mode === m ? "#fff" : P.textMuted }}>{m === "replace" ? "Replace All" : "Append"}</button>)}
-          </div>
           <button onClick={confirm} disabled={importing} style={{ padding: "10px 28px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, color: "#fff", opacity: importing ? 0.6 : 1 }}>{importing ? "Importing..." : `Import ${result.rowCount.toLocaleString()} rows`}</button>
           <button onClick={() => setResult(null)} style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${P.border}`, background: "none", color: P.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans'" }}>Cancel</button>
         </div>
@@ -384,7 +380,6 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
     {history.length > 0 && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: P.textDim, textTransform: "uppercase", marginBottom: 12 }}>Upload History</div>
       {history.map((h, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: i < history.length - 1 ? `1px solid ${P.border}` : "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: P.green }} /><span style={{ fontSize: 13, color: P.text, fontWeight: 600 }}>{h.rows.toLocaleString()} rows · {h.districts} districts</span><span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: h.mode === "replace" ? P.blueDim : P.purpleDim, color: h.mode === "replace" ? P.blue : P.purple, fontWeight: 600 }}>{h.mode}</span></div>
         <span style={{ fontSize: 11, color: P.textDim }}>{new Date(h.date).toLocaleString("en-IN")}</span>
       </div>)}
     </div>}
