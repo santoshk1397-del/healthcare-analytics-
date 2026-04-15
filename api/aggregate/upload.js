@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     const { rows } = req.body;
 
     const { error } = await supabase
-      .from("aggregate_data")
+      .from("ncd_data")
       .insert(rows);
 
     if (error) throw error;
