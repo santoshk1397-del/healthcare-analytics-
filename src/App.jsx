@@ -26,14 +26,13 @@ const CSV_HEADERS = "district_name,month,year,disease_type,cases,screening_targe
 
 function generateSampleCSV() {
   const rows = [CSV_HEADERS];
-  const rng = (() => { let s = 42; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; })();
-  DISTRICTS_META.forEach(d => {
-    MONTHS.forEach(m => {
-      DISEASES.forEach(disease => {
-        const cases = Math.round(50 + rng() * 400);
-        rows.push(`${d.name},${m},${disease},${cases},${Math.round(d.population * 0.025)},${Math.round(d.population * 0.025 * (0.4 + rng() * 0.5))},${Math.round(5 + rng() * 30)},${Math.round(3 + rng() * 20)},${Math.round(2 + rng() * 8)},${Math.round(1 + rng() * 6)},${Math.round(50 + rng() * 45)}`);
-      });
-    });
+  const sample = [
+    ["Raipur", "Apr", YEAR, "Diabetes"],
+    ["Bilaspur", "May", YEAR, "Hypertension"],
+    ["Durg", "Jun", YEAR, "Cardiovascular"],
+  ];
+  sample.forEach(([district, month, year, disease]) => {
+    rows.push(`${district},${month},${year},${disease},120,50000,32000,15,10,6,4,75`);
   });
   return rows.join("\n");
 }
@@ -324,7 +323,6 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
   };
 
   const dlTemplate = () => { const b = new Blob([generateSampleCSV()], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "ncd_template.csv"; a.click(); };
-  const reset = async () => { onUpdate(generateSeedData()); try { await window.storage.delete("ncd-data"); } catch (e) {} };
 
   return <div style={{ height: "100%", overflow: "auto", padding: 28 }}><div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
     <div><div style={{ fontSize: 20, fontWeight: 800, color: P.text }}>Data Ingestion Portal</div><div style={{ fontSize: 13, color: P.textDim, marginTop: 4 }}>Upload district-level NCD data via CSV. Data flows into reports and AI chat.</div></div>
@@ -341,7 +339,6 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
 
     <div style={{ display: "flex", gap: 12 }}>
       <button onClick={dlTemplate} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, color: P.accent, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}><I.Download /> Download CSV Template</button>
-      <button onClick={reset} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, color: P.textMuted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}><I.Trash /> Reset to Demo</button>
     </div>
 
     <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 18 }}>
