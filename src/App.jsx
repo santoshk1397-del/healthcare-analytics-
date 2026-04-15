@@ -38,45 +38,27 @@ function generateSampleCSV() {
 }
 
 // ─── CSV Parser ───
-function parseCSV(csvText) {
-  const lines = csvText.trim().split("\n");
-  if (lines.length < 2) return { data: null, error: "CSV is empty" };
-  const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-  const missing = ["district_name", "month", "disease_type", "cases"].filter(r => !headers.includes(r));
-  if (missing.length) return { data: null, error: `Missing columns: ${missing.join(", ")}` };
+const parseCSV = (file) => {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (res) => {
+      const rawRows = res.data;
 
-  const rows = []; const errors = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const vals = lines[i].split(",").map(v => v.trim());
-    const row = {}; headers.forEach((h, j) => row[h] = vals[j] || "");
-    if (!row.district_name || !row.disease_type) { errors.push(`Row ${i + 1}: missing district/disease`); continue; }
-    row.cases = parseInt(row.cases) || 0;
-    row.screening_target = parseInt(row.screening_target) || 0;
-    row.screening_achieved = parseInt(row.screening_achieved) || 0;
-    row.budget_allocated_lakhs = parseFloat(row.budget_allocated_lakhs) || 0;
-    row.budget_utilized_lakhs = parseFloat(row.budget_utilized_lakhs) || 0;
-    row.hr_sanctioned = parseInt(row.hr_sanctioned) || 0;
-    row.hr_in_position = parseInt(row.hr_in_position) || 0;
-    row.drug_availability_pct = parseFloat(row.drug_availability_pct) || 0;
-    rows.push(row);
-  }
+      // 🔹 KEEP YOUR EXISTING LOGIC HERE
+      // (this is whatever you already do to build charts / district data)
+      const processed = buildDistrictData(rawRows); 
+      // 👆 replace with your actual function / logic
 
-  const districtMap = {};
-  rows.forEach(r => {
-    const key = r.district_name;
-    if (!districtMap[key]) {
-      const meta = DISTRICTS_META.find(m => m.name.toLowerCase() === key.toLowerCase()) || { id: Object.keys(districtMap).length + 100, name: key, zone: "Other", population: 0 };
-      districtMap[key] = { ...meta, name: key, _cases: 0, _scrT: 0, _scrA: 0, _budA: 0, _budU: 0, _hrS: 0, _hrF: 0, _drugSum: 0, _drugN: 0, _disease: {}, _month: {}, _monthScr: {} };
-    }
-    const d = districtMap[key];
-    d._cases += r.cases; d._scrT += r.screening_target; d._scrA += r.screening_achieved;
-    d._budA += r.budget_allocated_lakhs; d._budU += r.budget_utilized_lakhs;
-    d._hrS += r.hr_sanctioned; d._hrF += r.hr_in_position;
-    if (r.drug_availability_pct) { d._drugSum += r.drug_availability_pct; d._drugN++; }
-    d._disease[r.disease_type] = (d._disease[r.disease_type] || 0) + r.cases;
-    if (r.month) { d._month[r.month] = (d._month[r.month] || 0) + r.cases; d._monthScr[r.month] = (d._monthScr[r.month] || 0) + r.screening_achieved; }
+      setResult({
+        data: processed,     // ✅ UI data (unchanged)
+        rawRows: rawRows,    // 🔥 ADD THIS (important)
+        rowCount: rawRows.length,
+        districtCount: new Set(rawRows.map(r => r.district_name)).size,
+      });
+    },
   });
+};
 
   const data = Object.values(districtMap).map(d => ({
     id: d.id, name: d.name, zone: d.zone, population: d.population,
