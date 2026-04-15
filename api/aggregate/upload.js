@@ -1,4 +1,4 @@
-import { supabase } from "../db";
+import { supabase } from "../db.js";
 
 const MONTH_MAP = {
   Apr: "04", May: "05", Jun: "06",
