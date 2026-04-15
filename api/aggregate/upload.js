@@ -1,18 +1,10 @@
 import { supabase } from "../db";
 
 const MONTH_MAP = {
-  Apr: "04",
-  May: "05",
-  Jun: "06",
-  Jul: "07",
-  Aug: "08",
-  Sep: "09",
-  Oct: "10",
-  Nov: "11",
-  Dec: "12",
-  Jan: "01",
-  Feb: "02",
-  Mar: "03",
+  Apr: "04", May: "05", Jun: "06",
+  Jul: "07", Aug: "08", Sep: "09",
+  Oct: "10", Nov: "11", Dec: "12",
+  Jan: "01", Feb: "02", Mar: "03",
 };
 
 export default async function handler(req, res) {
@@ -27,27 +19,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No data provided" });
     }
 
-    // 1️⃣ Fetch districts once (for mapping)
-    const { data: districts, error: dError } = await supabase
+    // 🔹 fetch districts
+    const { data: districts } = await supabase
       .from("districts")
       .select("id, name");
-
-    if (dError) throw dError;
 
     const districtMap = {};
     districts.forEach(d => {
       districtMap[d.name.toLowerCase()] = d.id;
     });
 
-    // 2️⃣ Transform rows
-    const formattedRows = rows.map(row => {
-      const districtName = row.district_name?.trim();
-      const month = row.month?.trim();
-      const year = row.year;
+    // 🔹 transform rows
+    const formatted = rows.map(r => {
+      const districtName = r.district_name?.trim();
+      const month = r.month?.trim();
+      const year = r.year;
 
-      const district_id = districtMap[districtName?.toLowerCase()] || null;
-
-      // Create month_date from month + year
       const monthNum = MONTH_MAP[month];
       const month_date = monthNum
         ? `${year}-${monthNum}-01`
@@ -56,38 +43,38 @@ export default async function handler(req, res) {
       return {
         district_name: districtName,
         month,
-        disease_type: row.disease_type,
+        disease_type: r.disease_type,
 
-        cases: Number(row.cases) || 0,
-        screening_target: Number(row.screening_target) || 0,
-        screening_achieved: Number(row.screening_achieved) || 0,
-        budget_allocated_lakhs: Number(row.budget_allocated_lakhs) || 0,
-        budget_utilized_lakhs: Number(row.budget_utilized_lakhs) || 0,
-        hr_sanctioned: Number(row.hr_sanctioned) || 0,
-        hr_in_position: Number(row.hr_in_position) || 0,
-        drug_availability_pct: Number(row.drug_availability_pct) || 0,
+        cases: Number(r.cases) || 0,
+        screening_target: Number(r.screening_target) || 0,
+        screening_achieved: Number(r.screening_achieved) || 0,
+        budget_allocated_lakhs: Number(r.budget_allocated_lakhs) || 0,
+        budget_utilized_lakhs: Number(r.budget_utilized_lakhs) || 0,
+        hr_sanctioned: Number(r.hr_sanctioned) || 0,
+        hr_in_position: Number(r.hr_in_position) || 0,
+        drug_availability_pct: Number(r.drug_availability_pct) || 0,
 
-        district_id,
+        district_id: districtMap[districtName?.toLowerCase()] || null,
         month_date,
         created_at: new Date(),
       };
     });
 
-    // 3️⃣ Insert into ncd_data
+    // ✅ ALWAYS APPEND (no delete, no replace)
     const { error } = await supabase
       .from("ncd_data")
-      .insert(formattedRows);
+      .insert(formatted);
 
     if (error) throw error;
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      inserted: formattedRows.length,
+      inserted: formatted.length,
     });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({
+    return res.status(500).json({
       error: err.message,
     });
   }
