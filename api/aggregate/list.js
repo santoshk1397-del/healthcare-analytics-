@@ -3,7 +3,7 @@ import { supabase } from "../db";
 export default async function handler(req, res) {
   try {
     const { data, error } = await supabase
-      .from("aggregate_data")
+      .from("ncd_data")
       .select("*");
 
     if (error) throw error;
