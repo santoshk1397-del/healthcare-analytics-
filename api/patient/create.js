@@ -1,4 +1,4 @@
-import { supabase } from "../db";
+import { supabase } from "../db.js";
 
 export default async function handler(req, res) {
   const user = req.user; // extracted from auth middleware
