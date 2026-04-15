@@ -305,47 +305,32 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
   const handle = (file) => { if (!file) return; const r = new FileReader(); r.onload = e => { const res = parseCSV(e.target.result); setResult(res); }; r.readAsText(file); };
 
 const confirm = async () => {
-  if (!result?.data) return;
-
+  if (!result?.rawRows || result.rawRows.length === 0) {
+    alert("No data to upload");
+    return;
+  }
   setImporting(true);
-
   try {
-    const payload = result.data.flatMap(d => {
-      return d.monthlyTrend.map(m => ({
-        district_name: d.name,
-        month: m.month,
-        year: YEAR,
-        disease_type: d.disease_type,
-        cases: m.cases,
-        screening_target: d.screeningTarget,
-        screening_achieved: d.screeningAchieved,
-        budget_allocated_lakhs: d.budgetAllocated / 100000,
-        budget_utilized_lakhs: (d.budgetAllocated * d.budgetUtilized) / 100000,
-        hr_sanctioned: d.hrSanctioned,
-        hr_in_position: Math.round(d.hrSanctioned * d.hrFilled),
-        drug_availability_pct: parseFloat(d.drugAvailability),
-      }));
-    });
+    // 🔥 send RAW CSV rows only
     const res = await fetch("/api/aggregate/upload", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ rows: payload }),
+      body: JSON.stringify({
+        rows: result.rawRows,
+      }),
     });
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error);
+    if (!res.ok) {
+      throw new Error(json.error || "Upload failed");
+    }
+    // ✅ keep your UI working
     onUpdate(result.data);
-    onHistory({
-      date: new Date().toISOString(),
-      rows: payload.length,
-      districts: result.districtCount,
-      mode: "append",
-    });
-    alert(`Uploaded ${payload.length} rows`);
-  } catch (e) {
-    console.error(e);
-    alert("Upload failed");
+    alert(`Uploaded ${json.inserted} rows`);
+  } catch (err) {
+    console.error("UPLOAD ERROR:", err);
+    alert(err.message);
   }
   setImporting(false);
   setResult(null);
