@@ -51,6 +51,8 @@ function parseCSV(csvText) {
     const vals = lines[i].split(",").map(v => v.trim());
     const row = {}; headers.forEach((h, j) => row[h] = vals[j] || "");
     if (!row.district_name || !row.disease_type) { errors.push(`Row ${i + 1}: missing district/disease`); continue; }
+    row.year = parseInt(row.year) || 2026;
+    row.month = parseInt(row.month) ;
     row.cases = parseInt(row.cases) || 0;
     row.screening_target = parseInt(row.screening_target) || 0;
     row.screening_achieved = parseInt(row.screening_achieved) || 0;
