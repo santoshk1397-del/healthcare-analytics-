@@ -304,22 +304,52 @@ function Ingest({ dd, onUpdate, history, onHistory }) {
 
   const handle = (file) => { if (!file) return; const r = new FileReader(); r.onload = e => { const res = parseCSV(e.target.result); setResult(res); }; r.readAsText(file); };
 
-  const confirm = async () => {
-    if (!result?.data) return; setImporting(true); await new Promise(r => setTimeout(r, 500));
-    let nd;
-    if (mode === "append") {
-      const map = {}; dd.forEach(d => map[d.name.toLowerCase()] = { ...d });
-      result.data.forEach(d => {
-        const k = d.name.toLowerCase();
-        if (map[k]) { const e = map[k]; e.totalCases += d.totalCases; e.screeningTarget += d.screeningTarget; e.screeningAchieved += d.screeningAchieved; e.screeningRate = e.screeningTarget > 0 ? (e.screeningAchieved / e.screeningTarget * 100).toFixed(1) : "0"; e.prevalenceRate = e.population > 0 ? (e.totalCases / e.population * 10000).toFixed(1) : "0"; DISEASES.forEach(dis => { const ed = e.diseaseBreakdown.find(x => x.disease === dis); const nd = d.diseaseBreakdown.find(x => x.disease === dis); if (ed && nd) ed.cases += nd.cases; }); MONTHS.forEach((m, i) => { if (e.monthlyTrend[i] && d.monthlyTrend[i]) { e.monthlyTrend[i].cases += d.monthlyTrend[i].cases; } });
-        } else map[k] = d;
-      });
-      nd = Object.values(map);
-    } else nd = result.data;
-    onUpdate(nd); onHistory({ date: new Date().toISOString(), rows: result.rowCount, districts: result.districtCount, mode });
-    try { await window.storage.set("ncd-data", JSON.stringify(nd)); } catch (e) {}
-    setImporting(false); setResult(null);
-  };
+const confirm = async () => {
+  if (!result?.data) return;
+
+  setImporting(true);
+
+  try {
+    const payload = result.data.flatMap(d => {
+      return d.monthlyTrend.map(m => ({
+        district_name: d.name,
+        month: m.month,
+        year: YEAR,
+        disease_type: d.disease_type,
+        cases: m.cases,
+        screening_target: d.screeningTarget,
+        screening_achieved: d.screeningAchieved,
+        budget_allocated_lakhs: d.budgetAllocated / 100000,
+        budget_utilized_lakhs: (d.budgetAllocated * d.budgetUtilized) / 100000,
+        hr_sanctioned: d.hrSanctioned,
+        hr_in_position: Math.round(d.hrSanctioned * d.hrFilled),
+        drug_availability_pct: parseFloat(d.drugAvailability),
+      }));
+    });
+    const res = await fetch("/api/aggregate/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ rows: payload }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error);
+    onUpdate(result.data);
+    onHistory({
+      date: new Date().toISOString(),
+      rows: payload.length,
+      districts: result.districtCount,
+      mode: "append",
+    });
+    alert(`Uploaded ${payload.length} rows`);
+  } catch (e) {
+    console.error(e);
+    alert("Upload failed");
+  }
+  setImporting(false);
+  setResult(null);
+};
 
   const dlTemplate = () => { const b = new Blob([generateSampleCSV()], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "ncd_template.csv"; a.click(); };
 
