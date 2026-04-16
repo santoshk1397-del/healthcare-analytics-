@@ -626,24 +626,42 @@ function HealthWorker() {
     if (!form.name || !form.dob) return alert("Name and Date of Birth are required");
     setSaving(true);
     try {
+      const payload = {
+        name: form.name,
+        dob: form.dob,
+        gender: form.gender || null,
+        phone: form.phone || null,
+        district_id: form.district_id ? parseInt(form.district_id) : null,
+      };
+      console.log("Sending payload:", payload);
       const res = await fetch("/api/patients/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          dob: form.dob,
-          gender: form.gender || null,
-          phone: form.phone || null,
-          district_id: form.district_id ? parseInt(form.district_id) : null,
-        }),
+        body: JSON.stringify(payload),
       });
+      console.log("Response status:", res.status);
       const text = await res.text();
-      const json = text ? JSON.parse(text) : {};
+      console.log("Response body:", text);
+      if (!text) {
+        // Empty response — insert may have worked, just refresh
+        await fetchAll();
+        resetForm();
+        setView("patients");
+        return;
+      }
+      const json = JSON.parse(text);
       if (!res.ok) throw new Error(json.error || "Failed");
       await fetchAll();
       resetForm();
       setView("patients");
-    } catch (e) { alert("Error: " + e.message); }
+    } catch (e) {
+      console.error("Save patient error:", e);
+      // Still try to refresh — the insert might have succeeded even if response parsing failed
+      await fetchAll();
+      alert("Note: " + e.message + "\nCheck if patient was added.");
+      resetForm();
+      setView("patients");
+    }
     setSaving(false);
   };
 
