@@ -637,7 +637,8 @@ function HealthWorker() {
           district_id: form.district_id ? parseInt(form.district_id) : null,
         }),
       });
-      const json = await res.json();
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : {};
       if (!res.ok) throw new Error(json.error || "Failed");
       await fetchAll();
       resetForm();
