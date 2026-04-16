@@ -422,7 +422,7 @@ function Reports({ rawRows, role }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
-  const [timeRange, setTimeRange] = useState("12m");
+  const [timeRange, setTimeRange] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
