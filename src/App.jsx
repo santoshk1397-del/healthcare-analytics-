@@ -120,6 +120,53 @@ function computeTotals(dd) {
   return { totalPopulation: dd.reduce((s, d) => s + (d.population || 0), 0), totalCases: dd.reduce((s, d) => s + d.totalCases, 0), avgScreening: (dd.reduce((s, d) => s + parseFloat(d.screeningRate), 0) / n).toFixed(1), avgBudgetUtil: (dd.reduce((s, d) => s + d.budgetUtilized, 0) / n * 100).toFixed(1), totalBudget: dd.reduce((s, d) => s + d.budgetAllocated, 0), avgDrugAvail: (dd.reduce((s, d) => s + parseFloat(d.drugAvailability), 0) / n).toFixed(1), avgHrFill: (dd.reduce((s, d) => s + d.hrFilled, 0) / n * 100).toFixed(1) };
 }
 
+// ─── Aggregate raw rows with filters ───
+function aggregateRows(rows, { district = "all", month = "all", year = "all" } = {}) {
+  let filtered = rows;
+  if (district !== "all") filtered = filtered.filter(r => r.district_name === district);
+  if (month !== "all") filtered = filtered.filter(r => r.month === month);
+  if (year !== "all") filtered = filtered.filter(r => String(r.year) === String(year));
+
+  const districtMap = {};
+  filtered.forEach(r => {
+    const key = r.district_name;
+    if (!districtMap[key]) {
+      const meta = DISTRICTS_META.find(m => m.name.toLowerCase() === key.toLowerCase()) || { id: Object.keys(districtMap).length + 100, name: key, zone: "Other", population: 0 };
+      districtMap[key] = { ...meta, name: key, _cases: 0, _scrT: 0, _scrA: 0, _budA: 0, _budU: 0, _hrS: 0, _hrF: 0, _drugSum: 0, _drugN: 0, _disease: {}, _month: {}, _monthScr: {} };
+    }
+    const d = districtMap[key];
+    d._cases += Number(r.cases) || 0;
+    d._scrT += Number(r.screening_target) || 0;
+    d._scrA += Number(r.screening_achieved) || 0;
+    d._budA += Number(r.budget_allocated_lakhs) || 0;
+    d._budU += Number(r.budget_utilized_lakhs) || 0;
+    d._hrS += Number(r.hr_sanctioned) || 0;
+    d._hrF += Number(r.hr_in_position) || 0;
+    const drug = Number(r.drug_availability_pct) || 0;
+    if (drug) { d._drugSum += drug; d._drugN++; }
+    d._disease[r.disease_type] = (d._disease[r.disease_type] || 0) + (Number(r.cases) || 0);
+    if (r.month) {
+      d._month[r.month] = (d._month[r.month] || 0) + (Number(r.cases) || 0);
+      d._monthScr[r.month] = (d._monthScr[r.month] || 0) + (Number(r.screening_achieved) || 0);
+    }
+  });
+
+  return Object.values(districtMap).map(d => ({
+    id: d.id, name: d.name, zone: d.zone, population: d.population,
+    totalCases: d._cases,
+    prevalenceRate: d.population > 0 ? (d._cases / d.population * 10000).toFixed(1) : "0",
+    screeningRate: d._scrT > 0 ? (d._scrA / d._scrT * 100).toFixed(1) : "0",
+    screeningTarget: d._scrT, screeningAchieved: d._scrA,
+    budgetAllocated: d._budA * 100000,
+    budgetUtilized: d._budA > 0 ? d._budU / d._budA : 0,
+    hrSanctioned: d._hrS, hrFilled: d._hrS > 0 ? d._hrF / d._hrS : 0,
+    drugAvailability: d._drugN > 0 ? (d._drugSum / d._drugN).toFixed(1) : "0",
+    diseaseBreakdown: DISEASES.map(disease => ({ disease, cases: d._disease[disease] || 0, trend: 0 })),
+    monthlyTrend: MONTHS.map(m => ({ month: m, cases: d._month[m] || 0, screenings: d._monthScr[m] || 0 })),
+    quarterlyBudget: QUARTERS.map(q => ({ quarter: q, allocated: Math.round(d._budA * 100000 / 4), utilized: Math.round(d._budU * 100000 / 4) })),
+  }));
+}
+
 // ─── Palette ───
 const P = { bg: "#0B0F1A", surface: "#111827", surfaceAlt: "#1A2035", border: "#1E293B", borderLight: "#334155", text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#64748B", accent: "#06B6D4", accentGlow: "rgba(6,182,212,0.15)", green: "#10B981", red: "#EF4444", amber: "#F59E0B", purple: "#8B5CF6", blue: "#3B82F6", blueDim: "rgba(59,130,246,0.15)", purpleDim: "rgba(139,92,246,0.15)", amberDim: "rgba(245,158,11,0.15)" };
 const DC = { Diabetes: "#06B6D4", Hypertension: "#EF4444", Cardiovascular: "#F59E0B", COPD: "#8B5CF6", Cancer: "#EC4899", Stroke: "#10B981" };
@@ -238,16 +285,16 @@ function Heatmap({ dd }) {
 }
 
 // ─── Reports ───
-function Reports({ dd, st }) {
+function Reports({ rawRows }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
   const [fMonth, setFMonth] = useState("all");
   const [fYear, setFYear] = useState("all");
-  const districtNames = dd.map(d => d.name);
+  const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
-  // Filter data
-  const fdd = fDistrict === "all" ? dd : dd.filter(d => d.name === fDistrict);
+  // Re-aggregate from raw rows using current filters
+  const fdd = aggregateRows(rawRows, { district: fDistrict, month: fMonth, year: fYear });
   const fst = computeTotals(fdd);
   const s = fdd.find(d => d.id === sel);
 
@@ -651,16 +698,38 @@ function HealthWorker() {
 // ─── Main App ───
 export default function App() {
   const [section, setSection] = useState("reports");
-  const [dd, setDd] = useState(generateSeedData());
+  const [rawRows, setRawRows] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [hist, setHist] = useState([]);
 
+  // Fetch raw rows from API on mount
   useEffect(() => {
     (async () => {
-      try { const r = await window.storage.get("ncd-data"); if (r?.value) setDd(JSON.parse(r.value)); } catch (e) {}
+      try {
+        const res = await fetch("/api/aggregate/list");
+        const json = await res.json();
+        if (json.data && json.data.length > 0) {
+          setRawRows(json.data);
+        }
+      } catch (e) {
+        console.error("API fetch failed:", e);
+      }
       try { const r = await window.storage.get("ncd-history"); if (r?.value) setHist(JSON.parse(r.value)); } catch (e) {}
+      setLoading(false);
     })();
   }, []);
 
+  // Re-fetch after upload
+  const refreshData = async () => {
+    try {
+      const res = await fetch("/api/aggregate/list");
+      const json = await res.json();
+      if (json.data) setRawRows(json.data);
+    } catch (e) { console.error(e); }
+  };
+
+  // Aggregate for components that need district-level objects
+  const dd = aggregateRows(rawRows);
   const st = computeTotals(dd);
   const addHist = async (entry) => { const nh = [entry, ...hist].slice(0, 20); setHist(nh); try { await window.storage.set("ncd-history", JSON.stringify(nh)); } catch (e) {} };
   const time = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
@@ -680,11 +749,12 @@ export default function App() {
        {[{ id: "reports", icon: I.Report, l: "Reports" }, { id: "chat", icon: I.Chat, l: "AI Assistant", badge: "AI" }, { id: "ingest", icon: I.Upload, l: "Data Upload" }, { id: "fieldwork", icon: I.Heart, l: "Field App" }].map(s => <button key={s.id} onClick={() => setSection(s.id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}><s.icon /> {s.l}{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
     </div>
 
-  <div style={{ flex: 1, overflow: "hidden" }}>
-      {section === "reports" && <Reports dd={dd} st={st} />}
-      {section === "chat" && <Chat dd={dd} st={st} />}
-      {section === "ingest" && <Ingest dd={dd} onUpdate={setDd} history={hist} onHistory={addHist} />}
-      {section === "fieldwork" && <HealthWorker />}
+    <div style={{ flex: 1, overflow: "hidden" }}>
+      {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
+      {!loading && section === "reports" && <Reports rawRows={rawRows} />}
+      {!loading && section === "chat" && <Chat dd={dd} st={st} />}
+      {!loading && section === "ingest" && <Ingest dd={dd} onUpdate={() => refreshData()} history={hist} onHistory={addHist} />}
+      {!loading && section === "fieldwork" && <HealthWorker />}
     </div>
   </div>;
 }
