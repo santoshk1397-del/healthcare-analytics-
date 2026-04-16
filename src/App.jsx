@@ -370,7 +370,7 @@ function Reports({ rawRows }) {
       {/* Budget */}
       {tab === "budget" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</div>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} showMonth={false} />
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames}/>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: P.blue }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: P.amber }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
     </div>
