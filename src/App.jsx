@@ -125,7 +125,10 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all" } =
   let filtered = rows;
   if (district !== "all") filtered = filtered.filter(r => r.district_name === district);
   if (month !== "all") filtered = filtered.filter(r => r.month === month);
-  if (year !== "all") filtered = filtered.filter(r => String(r.year) === String(year));
+  if (year !== "all") filtered = filtered.filter(r => {
+  const rowYear = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+  return String(rowYear) === String(year);
+});
 
   const districtMap = {};
   filtered.forEach(r => {
