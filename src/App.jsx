@@ -525,7 +525,16 @@ function Reports({ rawRows, role }) {
       th { padding: 8px 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #cbd5e1; letter-spacing: 0.04em; }
       .right { text-align: right; }
       .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
-      @media print { body { padding: 20px; } h2 { break-before: auto; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
+     .page-break {
+  page-break-before: always;
+  break-before: page;
+}
+
+@media print {
+  body { padding: 20px; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+}
     </style></head><body>
     <h1>NCD Surveillance Report</h1>
     <div class="meta">
