@@ -592,9 +592,9 @@ function HealthWorker() {
   const fetchAll = async () => {
     try {
       const [pRes, sRes, oRes] = await Promise.all([
-        fetch("/api/patients/list"),
-        fetch("/api/screenings/list"),
-        fetch("/api/observations/list"),
+        fetch("/api/patient/list"),
+        fetch("/api/screening/list"),
+        fetch("/api/observation/list"),
       ]);
       const pJson = await pRes.json();
       const sJson = await sRes.json();
@@ -637,7 +637,7 @@ function HealthWorker() {
     if (!form.name || !form.dob) return showError("Name and Date of Birth are required");
     setSaving(true);
     try {
-      await api("/api/patients/create", {
+      await api("/api/patient/create", {
         name: form.name,
         dob: form.dob,
         gender: form.gender || null,
@@ -656,7 +656,7 @@ function HealthWorker() {
     if (!form.patient_id) return showError("Select a patient");
     setSaving(true);
     try {
-      const json = await api("/api/screenings/create", {
+      const json = await api("/api/screening/create", {
         patient_id: form.patient_id,
         screening_date: form.screening_date || new Date().toISOString().split("T")[0],
       });
@@ -683,7 +683,7 @@ function HealthWorker() {
     setSaving(true);
     const sid = form.screening_id;
     try {
-      await api("/api/observations/create", {
+      await api("/api/observation/create", {
         screening_id: sid,
         disease_type: form.disease_type,
         value: form.value || null,
