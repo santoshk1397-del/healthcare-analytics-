@@ -94,7 +94,51 @@ function parseCSV(csvText) {
     budgetUtilized: d._budA > 0 ? d._budU / d._budA : 0,
     hrSanctioned: d._hrS, hrFilled: d._hrS > 0 ? d._hrF / d._hrS : 0,
     drugAvailability: d._drugN > 0 ? (d._drugSum / d._drugN).toFixed(1) : "0",
-    diseaseBreakdown: DISEASES.map(disease => ({ disease, cases: d._disease[disease] || 0, trend: -5 + Math.random() * 15 })),
+    diseaseBreakdown: DISEASES.map(disease => {
+      const cases = d._disease[disease] || 0;
+      // Calculate trend: compare current filtered period to the previous year
+      // Find which years exist for this district+disease in the full dataset
+      const relevantRows = fullSet.filter(r => r.district_name === d.name && r.disease_type === disease);
+      const yearsInData = [...new Set(relevantRows.map(r => {
+        const y = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+        return y ? Number(y) : null;
+      }).filter(Boolean))].sort();
+
+      let trend = 0;
+      if (yearsInData.length >= 2) {
+        // If a year filter is active, compare that year to the previous one
+        // If no year filter, compare the latest two years
+        const currentYear = year !== "all" ? Number(year) : yearsInData[yearsInData.length - 1];
+        const prevYear = yearsInData[yearsInData.indexOf(currentYear) - 1] || yearsInData[yearsInData.length - 2];
+
+        if (currentYear && prevYear && currentYear !== prevYear) {
+          let curFilter = relevantRows.filter(r => {
+            const ry = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+            return Number(ry) === currentYear;
+          });
+          let prevFilter = relevantRows.filter(r => {
+            const ry = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+            return Number(ry) === prevYear;
+          });
+          // Also apply district filter if active
+          if (district !== "all") {
+            curFilter = curFilter.filter(r => r.district_name === district);
+            prevFilter = prevFilter.filter(r => r.district_name === district);
+          }
+          // Also apply month filter if active
+          if (month !== "all") {
+            curFilter = curFilter.filter(r => r.month === month);
+            prevFilter = prevFilter.filter(r => r.month === month);
+          }
+          const curCases = curFilter.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+          const prevCases = prevFilter.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+          if (prevCases > 0) {
+            trend = ((curCases - prevCases) / prevCases) * 100;
+          }
+        }
+      }
+      return { disease, cases, trend };
+    }),
     monthlyTrend: MONTHS.map(m => ({ month: m, cases: d._month[m] || 0, screenings: d._monthScr[m] || 0 })),
     quarterlyBudget: QUARTERS.map(q => ({ quarter: q, allocated: Math.round(d._budA * 100000 / 4), utilized: Math.round(d._budU * 100000 / 4) })),
   }));
@@ -121,7 +165,8 @@ function computeTotals(dd) {
 }
 
 // ─── Aggregate raw rows with filters ───
-function aggregateRows(rows, { district = "all", month = "all", year = "all" } = {}) {
+function aggregateRows(rows, { district = "all", month = "all", year = "all" } = {}, allRows = null) {
+  const fullSet = allRows || rows;
   let filtered = rows;
   if (district !== "all") filtered = filtered.filter(r => r.district_name === district);
   if (month !== "all") filtered = filtered.filter(r => r.month === month);
@@ -297,7 +342,7 @@ function Reports({ rawRows }) {
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
   // Re-aggregate from raw rows using current filters
-  const fdd = aggregateRows(rawRows, { district: fDistrict, month: fMonth, year: fYear });
+  const fdd = aggregateRows(rawRows, { district: fDistrict, month: fMonth, year: fYear }, rawRows);
   const fst = computeTotals(fdd);
   const s = fdd.find(d => d.id === sel);
 
@@ -732,7 +777,7 @@ export default function App() {
   };
 
   // Aggregate for components that need district-level objects
-  const dd = aggregateRows(rawRows);
+  const dd = aggregateRows(rawRows, {}, rawRows);
   const st = computeTotals(dd);
   const addHist = async (entry) => { const nh = [entry, ...hist].slice(0, 20); setHist(nh); try { await window.storage.set("ncd-history", JSON.stringify(nh)); } catch (e) {} };
   const time = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
