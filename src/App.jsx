@@ -455,7 +455,7 @@ function Chat({ dd, st }) {
 }
 
 // ─── Data Ingestion ───
-function Ingest({ dd, onUpdate, history, onHistory }) {
+function Ingest({ dd, rawRows, onUpdate, history, onHistory }) {
   const [dragOver, setDragOver] = useState(false);
   const [result, setResult] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -520,7 +520,7 @@ const confirm = async () => {
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.accent }}>{dd.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Districts</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{dd.reduce((s, d) => s + d.totalCases, 0).toLocaleString()}</div><div style={{ fontSize: 11, color: P.textDim }}>Total Cases</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{DISEASES.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Diseases</div></div>
-        <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>12</div><div style={{ fontSize: 11, color: P.textDim }}>Records</div></div>
+        <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{rawRows.length.toLocaleString()}</div><div style={{ fontSize: 11, color: P.textDim }}>Records</div></div>
       </div>
     </div>
 
@@ -934,7 +934,7 @@ export default function App() {
       {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
       {!loading && section === "reports" && <Reports rawRows={rawRows} />}
       {!loading && section === "chat" && <Chat dd={dd} st={st} />}
-      {!loading && section === "ingest" && <Ingest dd={dd} onUpdate={() => refreshData()} history={hist} onHistory={addHist} />}
+      {!loading && section === "ingest" && <Ingest dd={dd} rawRows={rawRows} onUpdate={() => refreshData()} history={hist} onHistory={addHist} />}
       {!loading && section === "fieldwork" && <HealthWorker />}
     </div>
   </div>;
