@@ -557,18 +557,21 @@ function Reports({ rawRows, role }) {
       <tbody>${districtRows}</tbody>
     </table>
 
+   <div class="page-break"></div>
     <h2>Disease Distribution</h2>
     <table>
       <thead><tr><th>Disease</th><th class="right">Cases</th><th class="right">Share</th></tr></thead>
       <tbody>${diseaseRows}</tbody>
     </table>
 
+   <div class="page-break"></div>
     <h2>Disease Heatmap (Cases by District)</h2>
     <table>
       <thead><tr><th>District</th>${DISEASES.map(d => `<th style="text-align:center;font-size:9px">${d}</th>`).join("")}</tr></thead>
       <tbody>${heatmapRows}</tbody>
     </table>
 
+   <div class="page-break"></div>
     <h2>Screening Coverage</h2>
     <table>
       <thead><tr><th>District</th><th class="right">Coverage</th><th class="right">Target</th><th class="right">Achieved</th><th class="right">Gap</th></tr></thead>
