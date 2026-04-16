@@ -33,6 +33,34 @@ const ROLES = {
   analyst: { label: "Analyst", sections: ["reports", "chat"], allDistricts: true },
 };
 
+// ─── Time Ranges ───
+const TIME_RANGES = [
+  { id: "1m", label: "Last Month", months: 1 },
+  { id: "3m", label: "Last Quarter", months: 3 },
+  { id: "6m", label: "Last 6 Months", months: 6 },
+  { id: "12m", label: "Last 12 Months", months: 12 },
+  { id: "all", label: "All Time", months: null },
+  { id: "custom", label: "Custom", months: null },
+];
+
+function getDateRange(rangeId, customFrom, customTo) {
+  if (rangeId === "all") return { from: null, to: null };
+  if (rangeId === "custom") return { from: customFrom || null, to: customTo || null };
+  const range = TIME_RANGES.find(r => r.id === rangeId);
+  if (!range?.months) return { from: null, to: null };
+  const to = new Date();
+  const from = new Date();
+  from.setMonth(from.getMonth() - range.months);
+  return { from: from.toISOString().split("T")[0], to: to.toISOString().split("T")[0] };
+}
+
+function getRowDate(r) {
+  if (r.month_date) return r.month_date.split("T")[0];
+  const MN = { Jan:"01", Feb:"02", Mar:"03", Apr:"04", May:"05", Jun:"06", Jul:"07", Aug:"08", Sep:"09", Oct:"10", Nov:"11", Dec:"12" };
+  if (MN[r.month] && r.year) return `${r.year}-${MN[r.month]}-01`;
+  return null;
+}
+
 // ─── CSV Template Generator ───
 const CSV_HEADERS = "district_name,month,year,disease_type,cases,screening_target,screening_achieved,budget_allocated_lakhs,budget_utilized_lakhs,hr_sanctioned,hr_in_position,drug_availability_pct";
 
@@ -140,15 +168,24 @@ function computeTotals(dd) {
 }
 
 // ─── Aggregate raw rows with filters ───
-function aggregateRows(rows, { district = "all", month = "all", year = "all" } = {}, allRows = null) {
+function aggregateRows(rows, { district = "all", month = "all", year = "all", dateFrom = null, dateTo = null } = {}, allRows = null) {
   const fullSet = allRows || rows;
   let filtered = rows;
   if (district !== "all") filtered = filtered.filter(r => r.district_name === district);
   if (month !== "all") filtered = filtered.filter(r => r.month === month);
   if (year !== "all") filtered = filtered.filter(r => {
-  const rowYear = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
-  return String(rowYear) === String(year);
-});
+    const rowYear = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+    return String(rowYear) === String(year);
+  });
+  if (dateFrom || dateTo) {
+    filtered = filtered.filter(r => {
+      const d = getRowDate(r);
+      if (!d) return true;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }
   const districtMap = {};
   filtered.forEach(r => {
     const key = r.district_name;
@@ -264,7 +301,8 @@ function Donut({ data, size = 160 }) {
 // ─── Filter Bar ───
 const selStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", minWidth: 100 };
 
-function FilterBar({ district, setDistrict, month, setMonth, year, setYear, districts, showMonth = true, showYear = true }) {
+function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, customFrom, setCustomFrom, customTo, setCustomTo }) {
+  const dateInp = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", minWidth: 130 };
   return <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>District</span>
@@ -273,21 +311,26 @@ function FilterBar({ district, setDistrict, month, setMonth, year, setYear, dist
         {districts.map(d => <option key={d} value={d}>{d}</option>)}
       </select>
     </div>
-    {showMonth && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>Month</span>
-      <select value={month} onChange={e => setMonth(e.target.value)} style={selStyle}>
-        <option value="all">All Months</option>
-        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-      </select>
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase", marginRight: 2 }}>Period</span>
+      <div style={{ display: "flex", gap: 2, background: P.surfaceAlt, borderRadius: 8, padding: 2, border: `1px solid ${P.border}` }}>
+        {TIME_RANGES.map(tr => (
+          <button key={tr.id} onClick={() => setTimeRange(tr.id)} style={{
+            padding: "5px 10px", borderRadius: 6, border: "none", fontSize: 11, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap",
+            background: timeRange === tr.id ? P.accent : "transparent",
+            color: timeRange === tr.id ? "#fff" : P.textMuted,
+            transition: "all 0.15s",
+          }}>{tr.label}</button>
+        ))}
+      </div>
+    </div>
+    {timeRange === "custom" && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <input type="date" value={customFrom || ""} onChange={e => setCustomFrom(e.target.value)} style={dateInp} />
+      <span style={{ fontSize: 11, color: P.textDim }}>to</span>
+      <input type="date" value={customTo || ""} onChange={e => setCustomTo(e.target.value)} style={dateInp} />
     </div>}
-    {showYear && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>Year</span>
-      <select value={year} onChange={e => setYear(e.target.value)} style={selStyle}>
-        <option value="all">All Years</option>
-        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-      </select>
-    </div>}
-    {(district !== "all" || month !== "all" || year !== "all") && <button onClick={() => { setDistrict("all"); setMonth("all"); setYear("all"); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Clear filters</button>}
+    {(district !== "all" || timeRange !== "12m") && <button onClick={() => { setDistrict("all"); setTimeRange("12m"); setCustomFrom(""); setCustomTo(""); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Reset</button>}
   </div>;
 }
 
@@ -379,14 +422,17 @@ function Reports({ rawRows, role }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
-  const [fMonth, setFMonth] = useState("all");
-  const [fYear, setFYear] = useState("all");
+  const [timeRange, setTimeRange] = useState("12m");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
-  // Re-aggregate from raw rows using current filters
-  const fdd = aggregateRows(rawRows, { district: fDistrict, month: fMonth, year: fYear }, rawRows);
+  const { from: dateFrom, to: dateTo } = getDateRange(timeRange, customFrom, customTo);
+  const fdd = aggregateRows(rawRows, { district: fDistrict, dateFrom, dateTo }, rawRows);
   const fst = computeTotals(fdd);
   const s = fdd.find(d => d.id === sel);
+
+  const fb = <FilterBar district={fDistrict} setDistrict={setFDistrict} districts={districtNames} timeRange={timeRange} setTimeRange={setTimeRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />;
 
   const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
   const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
@@ -394,7 +440,7 @@ function Reports({ rawRows, role }) {
 
   // ── PDF Export ──
   const exportPDF = () => {
-    const filterLabel = [fDistrict !== "all" ? fDistrict : "All Districts", fMonth !== "all" ? fMonth : "All Months", fYear !== "all" ? fYear : "All Years"].join(" · ");
+    const filterLabel = [fDistrict !== "all" ? fDistrict : "All Districts", TIME_RANGES.find(t => t.id === timeRange)?.label || "Custom", dateFrom || "", dateTo || ""].filter(Boolean).join(" · ");
     const now = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 
     const districtRows = fdd.map(d => `<tr>
@@ -516,7 +562,7 @@ function Reports({ rawRows, role }) {
       {/* Dashboard */}
       {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>State Dashboard</div>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
+        {fb}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
           <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
           <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} color={P.green} />
@@ -552,28 +598,28 @@ function Reports({ rawRows, role }) {
 
       {/* Heatmap */}
       {tab === "heatmap" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
+        {fb}
         <Heatmap dd={fdd} />
       </div>}
 
       {/* Screening */}
       {tab === "screening" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Screening Coverage</div>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
+        {fb}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>{[...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => { const r = parseFloat(d.screeningRate); const c = r > 65 ? P.green : r > 45 ? P.amber : P.red; return <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{d.name}</span><span style={{ fontSize: 22, fontWeight: 800, color: c }}>{d.screeningRate}%</span></div><Bar value={r} color={c} h={8} /><div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: P.textDim }}><span>Target: {(d.screeningTarget / 1000).toFixed(0)}k</span><span>Done: {(d.screeningAchieved / 1000).toFixed(0)}k</span></div></div>; })}</div>
       </div>}
 
       {/* Disease Trends — with district filter */}
       {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
+        {fb}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>{DISEASES.map(dis => { const ma = MONTHS.map((m, i) => ({ m, c: fdd.reduce((sum, d) => sum + Math.round((d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0) / 12 * (0.8 + Math.sin(i * 0.7) * 0.3)), 0) })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={ma} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
       </div>}
 
       {/* Budget */}
       {tab === "budget" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</div>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames}/>
+        {fb}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: P.blue }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: P.amber }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
 
