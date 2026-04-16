@@ -4,7 +4,8 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await supabase
       .from("ncd_data")
-      .select("*");
+      .select("*", { count: "exact" })
+      .range(0, 9999);
 
     if (error) throw error;
 
