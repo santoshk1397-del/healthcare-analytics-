@@ -272,7 +272,7 @@ const P = {
   green: "#166534",
   red: "#991B1B",
   amber: "#B45309",
-  black: #070a0d,
+  black: "#070a0d",
   purple: "#5B21B6",
   blue: "#1E40AF",
 
