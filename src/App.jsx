@@ -584,28 +584,116 @@ function Reports({ rawRows, role }) {
 }
 
 // ─── AI Chat ───
-function Chat({ dd, st }) {
-  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state.\n\nAsk me about district performance, disease trends, screening coverage, or budget utilization.\n\nHow can I help?" }]);
+function Chat({ dd, st, rawRows }) {
+  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state, including month-by-month breakdowns and year-over-year trends.\n\nI can also search the web for evidence-based guidelines, research, and intervention strategies.\n\nTry asking:\n• What are the biggest gaps in Raipur?\n• Why are diabetes cases increasing in Bastar?\n• Compare screening performance across zones\n• Recommend interventions based on WHO guidelines\n\nHow can I help?" }]);
   const [inp, setInp] = useState(""); const [loading, setLoading] = useState(false);
   const endRef = useRef(null); const inpRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
+  // Build rich context from raw rows
+  const buildContext = () => {
+    // State-level summary
+    let ctx = `STATE NCD DATA — Chhattisgarh\nPopulation: ${(st.totalPopulation/1e6).toFixed(1)}M | Total Cases: ${st.totalCases.toLocaleString()} | Avg Screening: ${st.avgScreening}% | Budget Util: ${st.avgBudgetUtil}% | Drug Avail: ${st.avgDrugAvail}% | HR Fill: ${st.avgHrFill}%\n\n`;
+
+    // Per-district summary with all metrics
+    ctx += "DISTRICT SUMMARIES:\n";
+    dd.forEach(d => {
+      ctx += `${d.name} (${d.zone} Zone, Pop ${(d.population/1e5).toFixed(1)}L): Cases=${d.totalCases.toLocaleString()}, Screening=${d.screeningRate}%, Drug=${d.drugAvailability}%, Budget=${(d.budgetUtilized*100).toFixed(0)}%, HR=${(d.hrFilled*100).toFixed(0)}%, Diseases=[${d.diseaseBreakdown.map(x => `${x.disease}:${x.cases}${x.trend ? '(trend:' + (x.trend>0?'+':'') + x.trend.toFixed(0) + '%)' : ''}`).join(', ')}]\n`;
+    });
+
+    // Monthly breakdown from raw rows — aggregate per district per month
+    const monthlyByDistrict = {};
+    rawRows.forEach(r => {
+      const key = `${r.district_name}|${r.month}|${r.year || ''}`;
+      if (!monthlyByDistrict[key]) monthlyByDistrict[key] = { district: r.district_name, month: r.month, year: r.year, cases: 0, screening_target: 0, screening_achieved: 0 };
+      const m = monthlyByDistrict[key];
+      m.cases += Number(r.cases) || 0;
+      m.screening_target += Number(r.screening_target) || 0;
+      m.screening_achieved += Number(r.screening_achieved) || 0;
+    });
+
+    // Year-over-year by district+disease
+    const yoyByDistrictDisease = {};
+    rawRows.forEach(r => {
+      const yr = Number(r.year) || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+      if (!yr) return;
+      const key = `${r.district_name}|${r.disease_type}`;
+      if (!yoyByDistrictDisease[key]) yoyByDistrictDisease[key] = {};
+      yoyByDistrictDisease[key][yr] = (yoyByDistrictDisease[key][yr] || 0) + (Number(r.cases) || 0);
+    });
+
+    ctx += "\nYEAR-OVER-YEAR DISEASE TRENDS (cases by year):\n";
+    Object.entries(yoyByDistrictDisease).forEach(([key, years]) => {
+      const sortedYears = Object.keys(years).sort();
+      if (sortedYears.length >= 2) {
+        const [district, disease] = key.split("|");
+        const vals = sortedYears.map(y => `${y}:${years[y]}`).join(", ");
+        const latest = Number(sortedYears[sortedYears.length - 1]);
+        const prev = Number(sortedYears[sortedYears.length - 2]);
+        const pct = years[prev] > 0 ? (((years[latest] - years[prev]) / years[prev]) * 100).toFixed(0) : "N/A";
+        ctx += `${district} ${disease}: ${vals} (change: ${pct}%)\n`;
+      }
+    });
+
+    // Monthly trend for key districts (top 5 by cases)
+    const topDistricts = [...dd].sort((a, b) => b.totalCases - a.totalCases).slice(0, 5).map(d => d.name);
+    ctx += "\nMONTHLY CASE TRENDS (top districts):\n";
+    topDistricts.forEach(distName => {
+      const monthData = Object.values(monthlyByDistrict)
+        .filter(m => m.district === distName)
+        .sort((a, b) => (a.year || 0) - (b.year || 0));
+      if (monthData.length > 0) {
+        ctx += `${distName}: ${monthData.map(m => `${m.month}${m.year ? "'" + String(m.year).slice(2) : ''}:${m.cases}`).join(", ")}\n`;
+      }
+    });
+
+    return ctx;
+  };
 
   const send = useCallback(async () => {
     if (!inp.trim() || loading) return;
     const msg = inp.trim(); setInp("");
     const next = [...msgs, { role: "user", content: msg }]; setMsgs(next); setLoading(true);
     try {
-      const ctx = dd.map(d => `${d.name}: Cases=${d.totalCases}, Screening=${d.screeningRate}%, Drug=${d.drugAvailability}%, Budget=${(d.budgetUtilized*100).toFixed(0)}%, HR=${(d.hrFilled*100).toFixed(0)}%, Zone=${d.zone}, Pop=${(d.population/1e5).toFixed(1)}L, [${d.diseaseBreakdown.map(x => `${x.disease}:${x.cases}`).join(',')}]`).join("\n");
+      const ctx = buildContext();
       const apiMsgs = next.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-10);
-      const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, system: `You are an NCD analytics AI for Chhattisgarh state health officials.\n\nData:\nState: Pop ${(st.totalPopulation/1e6).toFixed(1)}M, Cases ${st.totalCases.toLocaleString()}, Screening ${st.avgScreening}%, Budget ${st.avgBudgetUtil}%, Drugs ${st.avgDrugAvail}%\n\n${ctx}\n\nCite specific numbers. Be concise. Recommend WHO/NPCDCS interventions. Professional tone.`, messages: apiMsgs }) });
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials. You have access to the complete NCD surveillance dataset AND can search the web for current research, WHO/NPCDCS guidelines, and evidence-based interventions.
+
+DATASET:
+${ctx}
+
+YOUR APPROACH:
+1. ALWAYS start by analyzing the actual data above to answer data questions. Cite specific numbers.
+2. When asked "why" something is happening (e.g. rising cases), first show the data trend, then use web search to find relevant research, risk factors, or epidemiological explanations.
+3. When asked for interventions or recommendations, search for current WHO, NPCDCS, or peer-reviewed evidence and combine with the local data context.
+4. For gap analysis, compare metrics across districts and flag where each district falls below state averages or national benchmarks.
+5. Be concise but thorough. Use bullet points. Bold key numbers.
+
+IMPORTANT: You are talking to senior government officials (District Collectors, CMHOs, State Health Directors). Be professional, actionable, and data-driven.`,
+          messages: apiMsgs,
+        }),
+      });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
-      setMsgs(p => [...p, { role: "assistant", content: data.content?.map(i => i.text || "").filter(Boolean).join("\n") || "Could not process. Try again." }]);
+      // Extract text from response (may include tool use blocks)
+      const text = data.content
+        ?.filter(b => b.type === "text")
+        .map(b => b.text)
+        .filter(Boolean)
+        .join("\n") || "Could not process. Try again.";
+      setMsgs(p => [...p, { role: "assistant", content: text }]);
     } catch (e) { console.error(e); setMsgs(p => [...p, { role: "assistant", content: "Unable to connect. Please try again." }]); }
     setLoading(false);
-  }, [inp, loading, msgs, dd, st]);
+  }, [inp, loading, msgs, dd, st, rawRows]);
 
-  const sugg = ["Which districts need urgent screening attention?", "Recommend interventions for Bastar", "Compare zone-wise performance", "Diabetes trend analysis"];
+  const sugg = ["What are the biggest gaps in Raipur?", "Why are diabetes cases increasing in Bastar?", "Compare screening across all zones", "Recommend interventions for low-performing districts"];
 
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
     <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -619,9 +707,10 @@ function Chat({ dd, st }) {
     {msgs.length <= 1 && <div style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
     <div style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
       <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px" }}>
-        <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
+        <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
         <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
       </div>
+      <div style={{ fontSize: 10, color: P.textDim, marginTop: 6, textAlign: "center" }}>AI can search the web for guidelines and research to supplement data analysis</div>
     </div>
   </div>;
 }
@@ -1184,7 +1273,7 @@ export default function App() {
     <div style={{ flex: 1, overflow: "hidden" }}>
       {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
       {!loading && section === "reports" && <Reports rawRows={visibleRows} role={role} />}
-      {!loading && section === "chat" && <Chat dd={dd} st={st} />}
+      {!loading && section === "chat" && <Chat dd={dd} st={st} rawRows={visibleRows} />}
       {!loading && section === "ingest" && <Ingest dd={dd} rawRows={visibleRows} onUpdate={() => refreshData()} history={hist} onHistory={addHist} role={role} />}
       {!loading && section === "fieldwork" && <HealthWorker />}
     </div>
