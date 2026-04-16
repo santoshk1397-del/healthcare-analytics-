@@ -632,7 +632,7 @@ function HealthWorker() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name,
-          age: parseInt(form.age),
+          dob: form.dob,
           gender: form.gender || "Male",
           phone: form.phone || null,
           district_id: form.district_id ? parseInt(form.district_id) : null,
@@ -770,7 +770,7 @@ function HealthWorker() {
         <Hdr title="Register Patient" />
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
           {F("Full Name *", "name")}
-          {F("Age *", "age", "number")}
+          {F("DOB *", "dob", "date")}
           {F("Gender", "gender", "text", GENDERS)}
           {F("District", "district_id", "text", DISTRICTS_META.map(d => ({ v: String(d.id), l: d.name })))}
           {F("Phone", "phone", "tel")}
@@ -822,7 +822,7 @@ function HealthWorker() {
         <Hdr title={`Patients (${patients.length})`} />
         <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           {patients.map(p => <Card key={p.id}
-            top={`${p.name || "—"}${p.age ? " · " + p.age + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
+            top={`${p.name || "—"}${p.dob ? " · " + p.dob + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
             mid={`${getDistrictName(p.district_id)}${p.phone ? " · " + p.phone : ""}`}
             bottom={`Registered: ${p.created_at?.split("T")[0] || "—"}`}
             color={P.accent}
