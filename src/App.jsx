@@ -624,7 +624,7 @@ function HealthWorker() {
 
   // ── Save Patient ──
   const savePatient = async () => {
-    if (!form.name || !form.dob) return alert("Name and DOB are required");
+    if (!form.name || !form.age) return alert("Name and Age are required");
     setSaving(true);
     try {
       const res = await fetch("/api/patients/create", {
@@ -632,14 +632,13 @@ function HealthWorker() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name,
-          dob: form.dob,
+          age: parseInt(form.age),
           gender: form.gender || "Male",
           phone: form.phone || null,
           district_id: form.district_id ? parseInt(form.district_id) : null,
         }),
       });
-      const text = await res.text();
-      const json = text ? JSON.parse(text) : {};
+      const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed");
       await fetchAll();
       resetForm();
@@ -661,8 +660,7 @@ function HealthWorker() {
           screening_date: form.screening_date || new Date().toISOString().split("T")[0],
         }),
       });
-      const text = await res.text();
-      const json = text ? JSON.parse(text) : {};
+      const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed");
       await fetchAll();
       // After creating screening, go to add observation for it
@@ -772,7 +770,7 @@ function HealthWorker() {
         <Hdr title="Register Patient" />
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
           {F("Full Name *", "name")}
-          {F("DOB *", "dob", "date")}
+          {F("Age *", "age", "number")}
           {F("Gender", "gender", "text", GENDERS)}
           {F("District", "district_id", "text", DISTRICTS_META.map(d => ({ v: String(d.id), l: d.name })))}
           {F("Phone", "phone", "tel")}
@@ -824,7 +822,7 @@ function HealthWorker() {
         <Hdr title={`Patients (${patients.length})`} />
         <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           {patients.map(p => <Card key={p.id}
-            top={`${p.name || "—"}${p.dob ? " · " + p.dob + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
+            top={`${p.name || "—"}${p.age ? " · " + p.age + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
             mid={`${getDistrictName(p.district_id)}${p.phone ? " · " + p.phone : ""}`}
             bottom={`Registered: ${p.created_at?.split("T")[0] || "—"}`}
             color={P.accent}
