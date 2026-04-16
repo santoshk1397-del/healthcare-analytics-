@@ -392,9 +392,124 @@ function Reports({ rawRows, role }) {
   const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
 
+  // ── PDF Export ──
+  const exportPDF = () => {
+    const filterLabel = [fDistrict !== "all" ? fDistrict : "All Districts", fMonth !== "all" ? fMonth : "All Months", fYear !== "all" ? fYear : "All Years"].join(" · ");
+    const now = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
+    const districtRows = fdd.map(d => `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:600">${d.name}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:right">${d.totalCases.toLocaleString()}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:right">${d.screeningRate}%</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:right">${d.drugAvailability}%</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:right">${(d.budgetUtilized * 100).toFixed(1)}%</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:right">${(d.hrFilled * 100).toFixed(0)}%</td>
+    </tr>`).join("");
+
+    const diseaseRows = totDis.map(d => `<tr>
+      <td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:600">${d.disease}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${d.cases.toLocaleString()}</td>
+      <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${fst.totalCases > 0 ? ((d.cases / fst.totalCases) * 100).toFixed(1) : 0}%</td>
+    </tr>`).join("");
+
+    const heatmapRows = fdd.map(d => `<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #eee;font-weight:600;font-size:11px">${d.name}</td>
+      ${DISEASES.map(dis => {
+        const entry = d.diseaseBreakdown.find(x => x.disease === dis);
+        const cases = entry?.cases || 0;
+        const bg = cases > 500 ? "#fee2e2" : cases > 200 ? "#fef3c7" : cases > 50 ? "#e0f2fe" : "#f0fdf4";
+        return `<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;background:${bg};font-size:11px;font-weight:600">${cases.toLocaleString()}</td>`;
+      }).join("")}
+    </tr>`).join("");
+
+    const screeningRows = [...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => {
+      const r = parseFloat(d.screeningRate);
+      const color = r > 65 ? "#059669" : r > 45 ? "#d97706" : "#dc2626";
+      return `<tr>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:600">${d.name}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right;color:${color};font-weight:700">${d.screeningRate}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${(d.screeningTarget / 1000).toFixed(0)}k</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${(d.screeningAchieved / 1000).toFixed(0)}k</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:right">${((d.screeningTarget - d.screeningAchieved) / 1000).toFixed(0)}k</td>
+      </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>NCD Report — ${filterLabel}</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; padding: 40px; font-size: 13px; line-height: 1.5; }
+      h1 { font-size: 22px; color: #0e7490; margin-bottom: 4px; }
+      h2 { font-size: 16px; color: #334155; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #06b6d4; }
+      .meta { font-size: 12px; color: #64748b; margin-bottom: 24px; }
+      .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+      .kpi { border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }
+      .kpi-val { font-size: 24px; font-weight: 800; color: #0e7490; }
+      .kpi-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+      th { padding: 8px 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #cbd5e1; letter-spacing: 0.04em; }
+      .right { text-align: right; }
+      .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; text-align: center; }
+      @media print { body { padding: 20px; } h2 { break-before: auto; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
+    </style></head><body>
+    <h1>NCD Surveillance Report</h1>
+    <div class="meta">
+      State Health Department — Chhattisgarh<br>
+      Generated: ${now} · Filters: ${filterLabel}${role && !role.allDistricts ? " · Role: " + role.label : ""}
+    </div>
+
+    <h2>Key Performance Indicators</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-val">${fst.totalCases.toLocaleString()}</div><div class="kpi-label">Total Cases</div></div>
+      <div class="kpi"><div class="kpi-val">${fst.avgScreening}%</div><div class="kpi-label">Avg Screening</div></div>
+      <div class="kpi"><div class="kpi-val">${fst.avgBudgetUtil}%</div><div class="kpi-label">Budget Util.</div></div>
+      <div class="kpi"><div class="kpi-val">${fst.avgDrugAvail}%</div><div class="kpi-label">Drug Avail.</div></div>
+      <div class="kpi"><div class="kpi-val">${fst.avgHrFill}%</div><div class="kpi-label">HR Filled</div></div>
+    </div>
+
+    <h2>District Performance</h2>
+    <table>
+      <thead><tr><th>District</th><th class="right">Cases</th><th class="right">Screening</th><th class="right">Drugs</th><th class="right">Budget</th><th class="right">HR</th></tr></thead>
+      <tbody>${districtRows}</tbody>
+    </table>
+
+    <h2>Disease Distribution</h2>
+    <table>
+      <thead><tr><th>Disease</th><th class="right">Cases</th><th class="right">Share</th></tr></thead>
+      <tbody>${diseaseRows}</tbody>
+    </table>
+
+    <h2>Disease Heatmap (Cases by District)</h2>
+    <table>
+      <thead><tr><th>District</th>${DISEASES.map(d => `<th style="text-align:center;font-size:9px">${d}</th>`).join("")}</tr></thead>
+      <tbody>${heatmapRows}</tbody>
+    </table>
+
+    <h2>Screening Coverage</h2>
+    <table>
+      <thead><tr><th>District</th><th class="right">Coverage</th><th class="right">Target</th><th class="right">Achieved</th><th class="right">Gap</th></tr></thead>
+      <tbody>${screeningRows}</tbody>
+    </table>
+
+    <div class="footer">
+      NCD Analytics Platform · State Health Department, Chhattisgarh · Confidential<br>
+      This report was auto-generated. Verify data with source records before policy decisions.
+    </div>
+    <script>window.onload = function() { window.print(); }</script>
+    </body></html>`;
+
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+  };
+
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-    <div style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "auto" }}>
+    <div style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "auto", alignItems: "center" }}>
       {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
+      <div style={{ marginLeft: "auto", padding: "0 4px" }}>
+        <button onClick={exportPDF} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
+          <I.Download /> Export PDF
+        </button>
+      </div>
     </div>
     <div style={{ flex: 1, overflow: "auto", padding: 28 }}>
 
