@@ -622,8 +622,8 @@ function HealthWorker() {
   };
 
   // ── Save Patient ──
-  const savePatient = async () => {
-    if (!form.name || !form.age) return alert("Name and Age are required");
+ const savePatient = async () => {
+    if (!form.name || !form.dob) return alert("Name and Date of Birth are required");
     setSaving(true);
     try {
       const res = await fetch("/api/patients/create", {
@@ -631,8 +631,8 @@ function HealthWorker() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name,
-          age: parseInt(form.age),
-          gender: form.gender || "Male",
+          dob: form.dob,
+          gender: form.gender || null,
           phone: form.phone || null,
           district_id: form.district_id ? parseInt(form.district_id) : null,
         }),
@@ -769,7 +769,8 @@ function HealthWorker() {
         <Hdr title="Register Patient" />
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
           {F("Full Name *", "name")}
-          {F("Age *", "age", "number")}
+          {F("Date of Birth *", "dob", "date")}
+          {form.dob && <div style={{ fontSize: 13, color: P.accent, fontWeight: 600, marginTop: -10, marginBottom: 16 }}>Age: {calculateAge(form.dob)} years</div>}
           {F("Gender", "gender", "text", GENDERS)}
           {F("District", "district_id", "text", DISTRICTS_META.map(d => ({ v: String(d.id), l: d.name })))}
           {F("Phone", "phone", "tel")}
@@ -784,7 +785,7 @@ function HealthWorker() {
           <div style={{ background: P.surfaceAlt, borderRadius: 10, padding: 14, marginBottom: 20, fontSize: 12, color: P.textMuted, lineHeight: 1.6 }}>
             Select a patient and date. After creating the screening, you'll be able to add observations (measurements) to it.
           </div>
-          {F("Patient *", "patient_id", "text", patients.map(p => ({ v: p.id, l: `${p.name}${p.age ? " · " + p.age + "y" : ""}` })))}
+          {F("Patient *", "patient_id", "text", patients.map(p => ({ v: p.id, l: `${p.name}${p.dob ? " · " + calculateAge(p.dob) + "y" : ""}${p["ABHA ID"] ? " · ABHA: " + p["ABHA ID"] : ""}` })))}
           {F("Date", "screening_date", "date")}
           <button onClick={saveScreening} disabled={saving} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.green}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8, opacity: saving ? 0.6 : 1 }}>{saving ? "Creating..." : "Create Screening & Add Observations"}</button>
         </div>
@@ -821,9 +822,9 @@ function HealthWorker() {
         <Hdr title={`Patients (${patients.length})`} />
         <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           {patients.map(p => <Card key={p.id}
-            top={`${p.name || "—"}${p.age ? " · " + p.age + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
-            mid={`${getDistrictName(p.district_id)}${p.phone ? " · " + p.phone : ""}`}
-            bottom={`Registered: ${p.created_at?.split("T")[0] || "—"}`}
+            top={`${p.name || "—"}${p.dob ? " · " + calculateAge(p.dob) + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
+            mid={<span>{getDistrictName(p.district_id)}{p.phone ? " · " + p.phone : ""}{p["ABHA ID"] ? <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, background: P.accentGlow, color: P.accent, fontSize: 10, fontWeight: 600 }}>ABHA: {p["ABHA ID"]}</span> : ""}</span>}
+            bottom={`DOB: ${p.dob || "—"} · Registered: ${p.created_at?.split("T")[0] || "—"}`}
             color={P.accent}
             onClick={() => { setForm({ patient_id: p.id }); setView("addScreening"); }}
           />)}
