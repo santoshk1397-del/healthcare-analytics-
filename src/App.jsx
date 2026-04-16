@@ -96,6 +96,7 @@ function parseCSV(csvText) {
     drugAvailability: d._drugN > 0 ? (d._drugSum / d._drugN).toFixed(1) : "0",
     diseaseBreakdown: DISEASES.map(disease => ({ disease, cases: d._disease[disease] || 0, trend: 0 })),
     monthlyTrend: MONTHS.map(m => ({ month: m, cases: d._month[m] || 0, screenings: d._monthScr[m] || 0 })),
+    records: recordCount,
     quarterlyBudget: QUARTERS.map(q => ({ quarter: q, allocated: Math.round(d._budA * 100000 / 4), utilized: Math.round(d._budU * 100000 / 4) })),
   }));
 
