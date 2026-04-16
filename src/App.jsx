@@ -272,7 +272,7 @@ const P = {
   green: "#166534",
   red: "#991B1B",
   amber: "#B45309",
-  purple: "#070a0d",
+  purple: "#6B7280",
   blue: "#1E40AF",
 
   // 🎨 subtle backgrounds (for chips, highlights)
