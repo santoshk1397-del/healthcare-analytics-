@@ -142,7 +142,7 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all" } =
   const rowYear = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
   return String(rowYear) === String(year);
 });
-
+  const recordCount = (rows || []).length;
   const districtMap = {};
   filtered.forEach(r => {
     const key = r.district_name;
@@ -521,7 +521,7 @@ const confirm = async () => {
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.accent }}>{dd.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Districts</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{dd.reduce((s, d) => s + d.totalCases, 0).toLocaleString()}</div><div style={{ fontSize: 11, color: P.textDim }}>Total Cases</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{DISEASES.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Diseases</div></div>
-        <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{Rows.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Records</div></div>
+        <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{recordCount}</div><div style={{ fontSize: 11, color: P.textDim }}>Records</div></div>
       </div>
     </div>
 
