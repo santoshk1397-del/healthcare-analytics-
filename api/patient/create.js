@@ -6,15 +6,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const patient = req.body;
+    const { name, dob, gender } = req.body;
 
-    if (!patient || !patient.name) {
-      return res.status(400).json({ error: "Missing patient data" });
+    if (!name || !dob) {
+      return res.status(400).json({ error: "Name and DOB required" });
     }
 
     const { data, error } = await supabase
       .from("patients")
-      .insert([patient])
+      .insert([
+        {
+          name,
+          dob,
+          gender,
+        },
+      ])
       .select()
       .single();
 
@@ -23,7 +29,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ patient: data });
 
   } catch (err) {
-    console.error("PATIENT CREATE ERROR:", err);
+    console.error("CREATE ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 }
