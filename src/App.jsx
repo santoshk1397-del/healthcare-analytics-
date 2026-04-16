@@ -566,65 +566,162 @@ const confirm = async () => {
 // ─── Health Worker Mobile Section ───
 function HealthWorker() {
   const [view, setView] = useState("home");
-  const [patients, setPatients] = useState([
-    { id: "P001", name: "Ramesh Kumar", age: 52, gender: "Male", district: "Raipur", disease: "Diabetes", phone: "9876543210", registeredAt: "2026-03-15" },
-    { id: "P002", name: "Sunita Devi", age: 45, gender: "Female", district: "Raipur", disease: "Hypertension", phone: "9876543211", registeredAt: "2026-03-18" },
-    { id: "P003", name: "Mohan Lal", age: 63, gender: "Male", district: "Bastar", disease: "COPD", phone: "9876543212", registeredAt: "2026-04-01" },
-  ]);
-  const [screenings, setScreenings] = useState([
-    { id: "S001", patientId: "P001", patientName: "Ramesh Kumar", type: "Blood Sugar", result: "Fasting: 142 mg/dL", date: "2026-04-10", status: "Abnormal" },
-    { id: "S002", patientId: "P002", patientName: "Sunita Devi", type: "BP Check", result: "148/92 mmHg", date: "2026-04-11", status: "Abnormal" },
-  ]);
-  const [observations, setObservations] = useState([
-    { id: "O001", patientId: "P001", patientName: "Ramesh Kumar", note: "Patient non-compliant with medication. Advised strict diet control.", date: "2026-04-10", severity: "Moderate" },
-  ]);
+  const [patients, setPatients] = useState([]);
+  const [screenings, setScreenings] = useState([]);
+  const [observations, setObservations] = useState([]);
   const [form, setForm] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+
   const resetForm = () => setForm({});
 
-  const fSelStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 10, padding: "12px 14px", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", width: "100%" };
+  // ── Fetch all data from APIs ──
+  const fetchAll = async () => {
+    try {
+      const [pRes, sRes, oRes] = await Promise.all([
+        fetch("/api/patients/list"),
+        fetch("/api/screenings/list"),
+        fetch("/api/observations/list"),
+      ]);
+      const pJson = await pRes.json();
+      const sJson = await sRes.json();
+      const oJson = await oRes.json();
+      if (pJson.patients) setPatients(pJson.patients);
+      if (sJson.screenings) setScreenings(sJson.screenings);
+      if (oJson.observations) setObservations(oJson.observations);
+    } catch (e) { console.error("Fetch error:", e); }
+    setLoadingData(false);
+  };
 
-  const savePatient = () => {
-    if (!form.name || !form.age || !form.disease) return alert("Fill required fields");
-    setPatients([{ id: "P" + String(patients.length + 1).padStart(3, "0"), name: form.name, age: parseInt(form.age), gender: form.gender || "Male", district: form.district || "Raipur", disease: form.disease, phone: form.phone || "", registeredAt: new Date().toISOString().split("T")[0] }, ...patients]);
-    resetForm(); setView("patients");
+  useEffect(() => { fetchAll(); }, []);
+
+  // ── Helpers ──
+  const getPatientName = (patientId) => {
+    const p = patients.find(p => p.id === patientId);
+    return p ? p.name : "Unknown";
   };
-  const saveScreening = () => {
-    if (!form.patientId || !form.type || !form.result) return alert("Fill required fields");
-    const pt = patients.find(p => p.id === form.patientId);
-    setScreenings([{ id: "S" + String(screenings.length + 1).padStart(3, "0"), patientId: form.patientId, patientName: pt?.name || "Unknown", type: form.type, result: form.result, date: new Date().toISOString().split("T")[0], status: form.status || "Normal" }, ...screenings]);
-    resetForm(); setView("screenings");
+  const getDistrictName = (districtId) => {
+    const d = DISTRICTS_META.find(d => d.id === districtId);
+    return d ? d.name : "—";
   };
-  const saveObs = () => {
-    if (!form.patientId || !form.note) return alert("Fill required fields");
-    const pt = patients.find(p => p.id === form.patientId);
-    setObservations([{ id: "O" + String(observations.length + 1).padStart(3, "0"), patientId: form.patientId, patientName: pt?.name || "Unknown", note: form.note, date: new Date().toISOString().split("T")[0], severity: form.severity || "Mild" }, ...observations]);
-    resetForm(); setView("observations");
+  const getScreeningLabel = (s) => {
+    const name = getPatientName(s.patient_id);
+    const date = s.screening_date || s.created_at?.split("T")[0] || "—";
+    return { name, date };
   };
+
+  // ── Save Patient ──
+  const savePatient = async () => {
+    if (!form.name || !form.age) return alert("Name and Age are required");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/patients/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          age: parseInt(form.age),
+          gender: form.gender || "Male",
+          phone: form.phone || null,
+          district_id: form.district_id ? parseInt(form.district_id) : null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed");
+      await fetchAll();
+      resetForm();
+      setView("patients");
+    } catch (e) { alert("Error: " + e.message); }
+    setSaving(false);
+  };
+
+  // ── Save Screening ──
+  const saveScreening = async () => {
+    if (!form.patient_id) return alert("Select a patient");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/screenings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patient_id: form.patient_id,
+          screening_date: form.screening_date || new Date().toISOString().split("T")[0],
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed");
+      await fetchAll();
+      // After creating screening, go to add observation for it
+      if (json.screening?.id) {
+        setForm({ screening_id: json.screening.id });
+        setView("addObs");
+      } else {
+        resetForm();
+        setView("screenings");
+      }
+    } catch (e) { alert("Error: " + e.message); }
+    setSaving(false);
+  };
+
+  // ── Save Observation ──
+  const saveObs = async () => {
+    if (!form.screening_id || !form.disease_type) return alert("Select a screening and disease type");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/observations/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          screening_id: form.screening_id,
+          disease_type: form.disease_type,
+          value: form.value || null,
+          severity: form.severity || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed");
+      await fetchAll();
+      // Stay on addObs with same screening so they can add more observations
+      const keepScreeningId = form.screening_id;
+      resetForm();
+      setForm({ screening_id: keepScreeningId });
+      alert("Observation saved. Add another or go back.");
+    } catch (e) { alert("Error: " + e.message); }
+    setSaving(false);
+  };
+
+  // ── Shared UI ──
+  const fSel = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 10, padding: "12px 14px", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", width: "100%" };
 
   const F = (label, key, type = "text", opts) => <div style={{ marginBottom: 16 }}>
     <label style={{ fontSize: 12, fontWeight: 600, color: P.textMuted, display: "block", marginBottom: 6 }}>{label}</label>
-    {opts ? <select value={form[key] || ""} onChange={e => setForm({ ...form, [key]: e.target.value })} style={fSelStyle}>
+    {opts ? <select value={form[key] || ""} onChange={e => setForm({ ...form, [key]: e.target.value })} style={fSel}>
       <option value="">Select...</option>{opts.map(o => <option key={o.v || o} value={o.v || o}>{o.l || o}</option>)}
-    </select> : <input type={type} value={form[key] || ""} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ ...fSelStyle }} />}
+    </select> : <input type={type} value={form[key] || ""} onChange={e => setForm({ ...form, [key]: e.target.value })} style={fSel} />}
   </div>;
 
-  const Header = ({ title, back }) => <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
-    {back && <button onClick={() => { setView("home"); resetForm(); }} style={{ background: "none", border: "none", color: P.textMuted, cursor: "pointer", padding: 4 }}><I.Back /></button>}
+  const Hdr = ({ title }) => <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+    <button onClick={() => { setView("home"); resetForm(); }} style={{ background: "none", border: "none", color: P.textMuted, cursor: "pointer", padding: 4 }}><I.Back /></button>
     <span style={{ fontSize: 17, fontWeight: 700, color: P.text }}>{title}</span>
   </div>;
 
-  const Card = ({ top, mid, bottom, color }) => <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 16, borderLeft: `3px solid ${color || P.accent}` }}>
+  const Card = ({ top, mid, bottom, color, onClick }) => <div onClick={onClick} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 16, borderLeft: `3px solid ${color || P.accent}`, cursor: onClick ? "pointer" : "default" }}>
     <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{top}</div>
     {mid && <div style={{ fontSize: 12, color: P.textMuted, marginTop: 4 }}>{mid}</div>}
     {bottom && <div style={{ fontSize: 11, color: P.textDim, marginTop: 6 }}>{bottom}</div>}
   </div>;
 
-  const statusColor = (s) => s === "Abnormal" ? P.red : s === "Borderline" ? P.amber : P.green;
   const sevColor = (s) => s === "Severe" ? P.red : s === "Moderate" ? P.amber : P.green;
+  const Spinner = () => <div style={{ textAlign: "center", padding: 40, color: P.textDim }}>Loading...</div>;
+  const Empty = ({ msg }) => <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>{msg}</div>;
+
+  // Count observations per screening
+  const obsCountForScreening = (screeningId) => observations.filter(o => o.screening_id === screeningId).length;
 
   return <div style={{ height: "100%", display: "flex", justifyContent: "center", background: P.bg }}>
     <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", borderLeft: `1px solid ${P.border}`, borderRight: `1px solid ${P.border}`, height: "100%" }}>
 
+      {/* ── Home ── */}
       {view === "home" && <>
         <div style={{ padding: "20px 20px 12px", background: P.surface, borderBottom: `1px solid ${P.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -633,87 +730,134 @@ function HealthWorker() {
           </div>
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: P.textDim, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quick Actions</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-            {[
-              { l: "Add Patient", icon: I.Plus, color: P.accent, v: "addPatient" },
-              { l: "Add Screening", icon: I.Target, color: P.green, v: "addScreening" },
-              { l: "Add Observation", icon: I.Eye, color: P.purple, v: "addObs" },
-              { l: "My Patients", icon: I.Users, color: P.blue, v: "patients", count: patients.length },
-            ].map(a => <button key={a.v} onClick={() => { resetForm(); setView(a.v); }} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: "20px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer", position: "relative" }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: `${a.color}18`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color }}><a.icon /></div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: P.text }}>{a.l}</span>
-              {a.count !== undefined && <span style={{ position: "absolute", top: 10, right: 12, background: a.color, color: "#fff", fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 10 }}>{a.count}</span>}
-            </button>)}
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: P.textDim, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Records</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[{ v: "screenings", l: "Screenings", count: screenings.length, color: P.accent }, { v: "observations", l: "Observations", count: observations.length, color: P.purple }].map(r => <button key={r.v} onClick={() => setView(r.v)} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}><I.List /><span style={{ fontSize: 13, fontWeight: 600, color: P.text }}>{r.l}</span></div>
-              <span style={{ fontSize: 12, color: r.color, fontWeight: 700 }}>{r.count}</span>
-            </button>)}
-          </div>
+          {loadingData ? <Spinner /> : <>
+            <div style={{ fontSize: 13, fontWeight: 600, color: P.textDim, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quick Actions</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+              {[
+                { l: "Add Patient", icon: I.Plus, color: P.accent, v: "addPatient" },
+                { l: "New Screening", icon: I.Target, color: P.green, v: "addScreening" },
+                { l: "My Patients", icon: I.Users, color: P.blue, v: "patients", count: patients.length },
+                { l: "Screenings", icon: I.List, color: P.amber, v: "screenings", count: screenings.length },
+              ].map(a => <button key={a.v} onClick={() => { resetForm(); setView(a.v); }} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: "20px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer", position: "relative" }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: `${a.color}18`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color }}><a.icon /></div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: P.text }}>{a.l}</span>
+                {a.count !== undefined && <span style={{ position: "absolute", top: 10, right: 12, background: a.color, color: "#fff", fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 10 }}>{a.count}</span>}
+              </button>)}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: P.textDim, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Records</div>
+            <button onClick={() => setView("observations")} style={{ width: "100%", background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}><I.Eye /><span style={{ fontSize: 13, fontWeight: 600, color: P.text }}>All Observations</span></div>
+              <span style={{ fontSize: 12, color: P.purple, fontWeight: 700 }}>{observations.length}</span>
+            </button>
+          </>}
         </div>
       </>}
 
+      {/* ── Add Patient ── */}
       {view === "addPatient" && <>
-        <Header title="Register Patient" back />
+        <Hdr title="Register Patient" />
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
           {F("Full Name *", "name")}
           {F("Age *", "age", "number")}
           {F("Gender", "gender", "text", GENDERS)}
-          {F("District", "district", "text", DISTRICTS_META.map(d => d.name))}
-          {F("Disease Type *", "disease", "text", DISEASES)}
+          {F("District", "district_id", "text", DISTRICTS_META.map(d => ({ v: String(d.id), l: d.name })))}
           {F("Phone", "phone", "tel")}
-          <button onClick={savePatient} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8 }}>Register Patient</button>
+          <button onClick={savePatient} disabled={saving} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving..." : "Register Patient"}</button>
         </div>
       </>}
 
+      {/* ── Add Screening (pick patient → creates screening → goes to add obs) ── */}
       {view === "addScreening" && <>
-        <Header title="Add Screening" back />
+        <Hdr title="New Screening Visit" />
         <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
-          {F("Patient *", "patientId", "text", patients.map(p => ({ v: p.id, l: `${p.name} (${p.id})` })))}
-          {F("Type *", "type", "text", ["Blood Sugar", "BP Check", "BMI", "Lipid Profile", "HbA1c", "ECG", "Lung Function", "Oral Exam", "Breast Exam", "Cervical Screening"])}
-          {F("Result *", "result")}
-          {F("Status", "status", "text", ["Normal", "Borderline", "Abnormal"])}
-          <button onClick={saveScreening} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.green}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8 }}>Save Screening</button>
-        </div>
-      </>}
-
-      {view === "addObs" && <>
-        <Header title="Add Observation" back />
-        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
-          {F("Patient *", "patientId", "text", patients.map(p => ({ v: p.id, l: `${p.name} (${p.id})` })))}
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: P.textMuted, display: "block", marginBottom: 6 }}>Notes *</label>
-            <textarea value={form.note || ""} onChange={e => setForm({ ...form, note: e.target.value })} rows={4} style={{ width: "100%", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 10, padding: "12px 14px", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", resize: "vertical" }} />
+          <div style={{ background: P.surfaceAlt, borderRadius: 10, padding: 14, marginBottom: 20, fontSize: 12, color: P.textMuted, lineHeight: 1.6 }}>
+            Select a patient and date. After creating the screening, you'll be able to add observations (measurements) to it.
           </div>
+          {F("Patient *", "patient_id", "text", patients.map(p => ({ v: p.id, l: `${p.name}${p.age ? " · " + p.age + "y" : ""}` })))}
+          {F("Date", "screening_date", "date")}
+          <button onClick={saveScreening} disabled={saving} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.green}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8, opacity: saving ? 0.6 : 1 }}>{saving ? "Creating..." : "Create Screening & Add Observations"}</button>
+        </div>
+      </>}
+
+      {/* ── Add Observation (linked to a screening) ── */}
+      {view === "addObs" && <>
+        <Hdr title="Add Observation" />
+        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+          {form.screening_id && (() => {
+            const scr = screenings.find(s => s.id === form.screening_id);
+            const pName = scr ? getPatientName(scr.patient_id) : "—";
+            const existing = observations.filter(o => o.screening_id === form.screening_id);
+            return <div style={{ background: P.surfaceAlt, borderRadius: 10, padding: 14, marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: P.text }}>Screening: {pName}</div>
+              <div style={{ fontSize: 11, color: P.textDim, marginTop: 4 }}>Date: {scr?.screening_date || "—"} · {existing.length} observation{existing.length !== 1 ? "s" : ""} recorded</div>
+              {existing.length > 0 && <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>{existing.map(o => <span key={o.id} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: `${DC[o.disease_type] || P.accent}25`, color: DC[o.disease_type] || P.accent, fontWeight: 600 }}>{o.disease_type}</span>)}</div>}
+            </div>;
+          })()}
+          {!form.screening_id && F("Screening *", "screening_id", "text", screenings.map(s => {
+            const sl = getScreeningLabel(s);
+            return { v: s.id, l: `${sl.name} — ${sl.date}` };
+          }))}
+          {F("Disease Type *", "disease_type", "text", DISEASES)}
+          {F("Value / Reading", "value")}
           {F("Severity", "severity", "text", SEVERITY)}
-          <button onClick={saveObs} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.purple}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8 }}>Save Observation</button>
+          <button onClick={saveObs} disabled={saving} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.purple}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8, opacity: saving ? 0.6 : 1 }}>{saving ? "Saving..." : "Save Observation"}</button>
+          <button onClick={() => { resetForm(); setView("screenings"); }} style={{ width: "100%", padding: 12, borderRadius: 12, border: `1px solid ${P.border}`, background: "none", color: P.textMuted, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 10 }}>Done — Back to Screenings</button>
         </div>
       </>}
 
+      {/* ── Patient List (tap to start screening) ── */}
       {view === "patients" && <>
-        <Header title={`Patients (${patients.length})`} back />
+        <Hdr title={`Patients (${patients.length})`} />
         <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {patients.map(p => <Card key={p.id} top={`${p.name} · ${p.age}/${p.gender.charAt(0)}`} mid={`${p.disease} · ${p.district}`} bottom={`${p.id} · ${p.registeredAt}${p.phone ? " · " + p.phone : ""}`} color={DC[p.disease] || P.accent} />)}
-          {!patients.length && <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>No patients yet.</div>}
+          {patients.map(p => <Card key={p.id}
+            top={`${p.name || "—"}${p.age ? " · " + p.age + "y" : ""}${p.gender ? " · " + p.gender.charAt(0) : ""}`}
+            mid={`${getDistrictName(p.district_id)}${p.phone ? " · " + p.phone : ""}`}
+            bottom={`Registered: ${p.created_at?.split("T")[0] || "—"}`}
+            color={P.accent}
+            onClick={() => { setForm({ patient_id: p.id }); setView("addScreening"); }}
+          />)}
+          {!patients.length && <Empty msg="No patients registered yet." />}
         </div>
       </>}
 
+      {/* ── Screening List (tap to add observation) ── */}
       {view === "screenings" && <>
-        <Header title={`Screenings (${screenings.length})`} back />
+        <Hdr title={`Screenings (${screenings.length})`} />
         <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {screenings.map(s => <Card key={s.id} top={`${s.patientName} — ${s.type}`} mid={<span>Result: <b style={{ color: statusColor(s.status) }}>{s.result}</b> · <span style={{ color: statusColor(s.status), fontWeight: 700 }}>{s.status}</span></span>} bottom={`${s.id} · ${s.date}`} color={statusColor(s.status)} />)}
-          {!screenings.length && <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>No screenings.</div>}
+          {screenings.map(s => {
+            const sl = getScreeningLabel(s);
+            const obsCount = obsCountForScreening(s.id);
+            const obsForThis = observations.filter(o => o.screening_id === s.id);
+            return <Card key={s.id}
+              top={sl.name}
+              mid={<div>
+                <div>Date: {sl.date} · {obsCount} observation{obsCount !== 1 ? "s" : ""}</div>
+                {obsForThis.length > 0 && <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>{obsForThis.map(o => <span key={o.id} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 5, background: `${sevColor(o.severity)}20`, color: sevColor(o.severity), fontWeight: 600 }}>{o.disease_type}{o.value ? ": " + o.value : ""}{o.severity ? " · " + o.severity : ""}</span>)}</div>}
+              </div>}
+              bottom={`ID: ${s.id.slice(0, 8)}...`}
+              color={obsCount > 0 ? P.green : P.amber}
+              onClick={() => { setForm({ screening_id: s.id }); setView("addObs"); }}
+            />;
+          })}
+          {!screenings.length && <Empty msg="No screenings yet." />}
         </div>
       </>}
 
+      {/* ── Observations List ── */}
       {view === "observations" && <>
-        <Header title={`Observations (${observations.length})`} back />
+        <Hdr title={`Observations (${observations.length})`} />
         <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {observations.map(o => <Card key={o.id} top={o.patientName} mid={o.note} bottom={<span>{o.id} · {o.date} · <span style={{ color: sevColor(o.severity), fontWeight: 700 }}>{o.severity}</span></span>} color={sevColor(o.severity)} />)}
-          {!observations.length && <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>No observations.</div>}
+          {observations.map(o => {
+            const scr = screenings.find(s => s.id === o.screening_id);
+            const pName = scr ? getPatientName(scr.patient_id) : "—";
+            return <Card key={o.id}
+              top={`${pName} — ${o.disease_type || "—"}`}
+              mid={<span>{o.value ? <><b style={{ color: P.text }}>{o.value}</b> · </> : ""}{o.severity && <span style={{ color: sevColor(o.severity), fontWeight: 700 }}>{o.severity}</span>}</span>}
+              bottom={`${o.created_at?.split("T")[0] || "—"} · Screening: ${o.screening_id?.slice(0, 8) || "—"}...`}
+              color={sevColor(o.severity)}
+            />;
+          })}
+          {!observations.length && <Empty msg="No observations yet." />}
         </div>
       </>}
 
