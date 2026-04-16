@@ -272,13 +272,12 @@ const P = {
   green: "#166534",
   red: "#991B1B",
   amber: "#B45309",
-  black: "#070a0d",
-  purple: "#5B21B6",
+  purple: "#070a0d",
   blue: "#1E40AF",
 
   // 🎨 subtle backgrounds (for chips, highlights)
   blueDim: "rgba(30,64,175,0.08)",
-  purpleDim: "rgba(91,33,182,0.08)",
+  purpleDim: "rgba(107,114,128,0.08)",
   amberDim: "rgba(180,83,9,0.08)"
 };
 const DC = { Diabetes: "#06B6D4", Hypertension: "#EF4444", Cardiovascular: "#F59E0B", COPD: "#8B5CF6", Cancer: "#EC4899", Stroke: "#10B981" };
