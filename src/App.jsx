@@ -250,34 +250,35 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
 
 // ─── Palette ───
 const P = {
-  // 🧱 BACKGROUNDS (softer, less bright)
-  bg: "#F3F4F6",            // off-white (main background)
-  surface: "#FAFAF9",       // card background (warm white)
-  surfaceAlt: "#E7E5E4",    // inputs / filters (light grey)
+  // 🧱 BACKGROUNDS (very soft, no pure white)
+  bg: "#F5F5F4",            // warm off-white (main background)
+  surface: "#FDFDFC",       // soft card (almost paper)
+  surfaceAlt: "#E7E5E4",    // inputs / filters
 
-  border: "#D6D3D1",        // soft grey border
-  borderLight: "#E7E5E4",
+  // 🪵 BORDERS (barely visible)
+  border: "#E5E7EB",
+  borderLight: "#F1F5F9",
 
-  // 📝 TEXT (reduced contrast, easier on eyes)
-  text: "#1C1917",          // soft black
-  textMuted: "#57534E",     // muted grey
-  textDim: "#A8A29E",       // light labels
+  // 📝 TEXT (soft, not harsh black)
+  text: "#1F2937",          // primary (charcoal)
+  textMuted: "#6B7280",     // secondary
+  textDim: "#9CA3AF",       // labels
 
-  // 🔶 ACCENT (slightly toned orange)
-  accent: "#EA580C",        // deeper orange (less bright than before)
-  accentGlow: "rgba(234,88,12,0.12)",
+  // 🔶 ACCENT (very controlled orange)
+  accent: "#C2410C",        // muted burnt orange
+  accentGlow: "rgba(194,65,12,0.08)",
 
-  // 🚦 STATUS COLORS (muted, not neon)
-  green: "#15803D",
-  red: "#B91C1C",
-  amber: "#D97706",
-  purple: "#6D28D9",
-  blue: "#1D4ED8",
+  // 🚦 STATUS (muted tones, no neon)
+  green: "#166534",
+  red: "#991B1B",
+  amber: "#B45309",
+  purple: "#5B21B6",
+  blue: "#1E40AF",
 
-  // 🎨 subtle backgrounds
-  blueDim: "rgba(29,78,216,0.10)",
-  purpleDim: "rgba(109,40,217,0.10)",
-  amberDim: "rgba(217,119,6,0.10)"
+  // 🎨 subtle backgrounds (for chips, highlights)
+  blueDim: "rgba(30,64,175,0.08)",
+  purpleDim: "rgba(91,33,182,0.08)",
+  amberDim: "rgba(180,83,9,0.08)"
 };
 const DC = { Diabetes: "#06B6D4", Hypertension: "#EF4444", Cardiovascular: "#F59E0B", COPD: "#8B5CF6", Cancer: "#EC4899", Stroke: "#10B981" };
 
