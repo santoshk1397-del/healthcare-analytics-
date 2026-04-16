@@ -249,7 +249,30 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
 }
 
 // ─── Palette ───
-const P = { bg: "#0B0F1A", surface: "#111827", surfaceAlt: "#1A2035", border: "#1E293B", borderLight: "#334155", text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#64748B", accent: "#06B6D4", accentGlow: "rgba(6,182,212,0.15)", green: "#10B981", red: "#EF4444", amber: "#F59E0B", purple: "#8B5CF6", blue: "#3B82F6", blueDim: "rgba(59,130,246,0.15)", purpleDim: "rgba(139,92,246,0.15)", amberDim: "rgba(245,158,11,0.15)" };
+const P = {
+  bg: "#F8FAFC",                // light background
+  surface: "#FFFFFF",          // cards
+  surfaceAlt: "#F1F5F9",       // inputs / secondary
+  border: "#E2E8F0",           // light borders
+  borderLight: "#CBD5E1",
+
+  text: "#0F172A",             // main text (dark)
+  textMuted: "#475569",        // secondary text
+  textDim: "#94A3B8",          // labels
+
+  accent: "#F97316",           // ORANGE (primary)
+  accentGlow: "rgba(249,115,22,0.15)",
+
+  green: "#16A34A",
+  red: "#DC2626",
+  amber: "#F59E0B",
+  purple: "#7C3AED",
+  blue: "#2563EB",
+
+  blueDim: "rgba(37,99,235,0.12)",
+  purpleDim: "rgba(124,58,237,0.12)",
+  amberDim: "rgba(245,158,11,0.12)"
+};
 const DC = { Diabetes: "#06B6D4", Hypertension: "#EF4444", Cardiovascular: "#F59E0B", COPD: "#8B5CF6", Cancer: "#EC4899", Stroke: "#10B981" };
 
 // ─── Icons ───
