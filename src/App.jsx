@@ -624,7 +624,7 @@ function HealthWorker() {
 
   // ── Save Patient ──
   const savePatient = async () => {
-    if (!form.name || !form.age) return alert("Name and Age are required");
+    if (!form.name || !form.dob) return alert("Name and DOB are required");
     setSaving(true);
     try {
       const res = await fetch("/api/patients/create", {
