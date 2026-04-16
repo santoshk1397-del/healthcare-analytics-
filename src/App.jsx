@@ -250,35 +250,38 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
 
 // ─── Palette ───
 const P = {
-  // 🧱 BACKGROUNDS (very soft, no pure white)
-  bg: "#F5F5F4",            // warm off-white (main background)
-  surface: "#FDFDFC",       // soft card (almost paper)
+  // 🧱 BACKGROUNDS
+  bg: "#F5F5F4",            // warm off-white
+  surface: "#FDFDFC",       // soft card
   surfaceAlt: "#E7E5E4",    // inputs / filters
 
-  // 🪵 BORDERS (barely visible)
+  // 🪵 BORDERS
   border: "#E5E7EB",
   borderLight: "#F1F5F9",
 
-  // 📝 TEXT (soft, not harsh black)
+  // 📝 TEXT
   text: "#1F2937",          // primary (charcoal)
   textMuted: "#6B7280",     // secondary
   textDim: "#9CA3AF",       // labels
 
-  // 🔶 ACCENT (very controlled orange)
-  accent: "#C2410C",        // muted burnt orange
+  // 🔶 PRIMARY ACCENT (muted orange)
+  accent: "#C2410C",
   accentGlow: "rgba(194,65,12,0.08)",
 
-  // 🚦 STATUS (muted tones, no neon)
+  // 🚦 STATUS COLORS (muted, no neon)
   green: "#166534",
   red: "#991B1B",
   amber: "#B45309",
-  purple: "#5B21B6",
   blue: "#1E40AF",
 
-  // 🎨 subtle backgrounds (for chips, highlights)
+  // ❌ REMOVED PURPLE → replaced with neutral
+  purple: "#6B7280",
+  purpleDim: "rgba(107,114,128,0.08)",
+
+  // 🎨 subtle highlight backgrounds
   blueDim: "rgba(30,64,175,0.08)",
-  purpleDim: "rgba(91,33,182,0.08)",
-  amberDim: "rgba(180,83,9,0.08)"
+  amberDim: "rgba(180,83,9,0.08)",
+  neutralDim: "rgba(107,114,128,0.06)"
 };
 const DC = { Diabetes: "#06B6D4", Hypertension: "#EF4444", Cardiovascular: "#F59E0B", COPD: "#8B5CF6", Cancer: "#EC4899", Stroke: "#10B981" };
 
