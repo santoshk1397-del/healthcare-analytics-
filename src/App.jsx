@@ -25,6 +25,13 @@ const SEVERITY = ["Mild", "Moderate", "Severe"];
 const GENDERS = ["Male", "Female", "Other"];
 const AGE_GROUPS = ["0-14", "15-29", "30-44", "45-59", "60+"];
 
+// ─── RBAC ───
+const ROLES = {
+  admin: { label: "Admin", sections: ["reports", "chat", "ingest"], allDistricts: true },
+  district_manager: { label: "District Manager — Raipur", sections: ["reports", "chat", "ingest"], allDistricts: false, district: "Raipur", districtId: 1 },
+  field_worker: { label: "Field Worker", sections: ["fieldwork"], allDistricts: false },
+  analyst: { label: "Analyst", sections: ["reports", "chat"], allDistricts: true },
+};
 
 // ─── CSV Template Generator ───
 const CSV_HEADERS = "district_name,month,year,disease_type,cases,screening_target,screening_achieved,budget_allocated_lakhs,budget_utilized_lakhs,hr_sanctioned,hr_in_position,drug_availability_pct";
@@ -232,6 +239,7 @@ const I = {
   List: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
   Eye: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
+  Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
 
 // ─── Shared UI ───
@@ -321,8 +329,53 @@ function Heatmap({ dd }) {
   </div>;
 }
 
+// ─── Alerts ───
+function Alerts({ dd, role }) {
+  const alerts = [];
+  const districts = role.allDistricts ? dd : dd.filter(d => d.name === role.district);
+  districts.forEach(d => {
+    const scr = parseFloat(d.screeningRate), drug = parseFloat(d.drugAvailability), bud = d.budgetUtilized * 100, hr = d.hrFilled * 100;
+    if (scr < 40) alerts.push({ district: d.name, type: "critical", msg: `Screening coverage critically low at ${scr}%`, metric: "Screening", value: scr });
+    else if (scr < 55) alerts.push({ district: d.name, type: "warning", msg: `Screening coverage below target at ${scr}%`, metric: "Screening", value: scr });
+    if (drug < 40) alerts.push({ district: d.name, type: "critical", msg: `Drug availability critically low at ${drug}%`, metric: "Drugs", value: drug });
+    else if (drug < 60) alerts.push({ district: d.name, type: "warning", msg: `Drug availability below threshold at ${drug}%`, metric: "Drugs", value: drug });
+    if (bud < 35) alerts.push({ district: d.name, type: "critical", msg: `Budget utilization critically low at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
+    else if (bud < 55) alerts.push({ district: d.name, type: "warning", msg: `Budget underutilized at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
+    if (hr < 45) alerts.push({ district: d.name, type: "critical", msg: `HR positions severely understaffed at ${hr.toFixed(0)}%`, metric: "HR", value: hr });
+    else if (hr < 60) alerts.push({ district: d.name, type: "warning", msg: `HR fill rate low at ${hr.toFixed(0)}%`, metric: "HR", value: hr });
+    d.diseaseBreakdown.forEach(db => {
+      if (db.trend > 40) alerts.push({ district: d.name, type: "critical", msg: `${db.disease} cases spiking: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
+      else if (db.trend > 20) alerts.push({ district: d.name, type: "warning", msg: `${db.disease} cases rising: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
+    });
+  });
+  alerts.sort((a, b) => { if (a.type === "critical" && b.type !== "critical") return -1; if (a.type !== "critical" && b.type === "critical") return 1; return a.value - b.value; });
+  const critical = alerts.filter(a => a.type === "critical"), warnings = alerts.filter(a => a.type === "warning");
+  const AlertCard = ({ a, color, bg }) => (
+    <div style={{ background: P.surface, border: `1px solid ${color}30`, borderRadius: 10, padding: "14px 18px", borderLeft: `3px solid ${color}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: P.text }}>{a.district}</div>
+        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: `${color}20`, color, fontWeight: 700 }}>{a.metric}</span>
+      </div>
+      <div style={{ fontSize: 12, color: P.textMuted, marginTop: 4 }}>{a.msg}</div>
+    </div>
+  );
+  return <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Alerts & Notifications</div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <span style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: "#EF444420", color: P.red, fontWeight: 700 }}>{critical.length} Critical</span>
+        <span style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: "#F59E0B20", color: P.amber, fontWeight: 700 }}>{warnings.length} Warnings</span>
+      </div>
+    </div>
+    {!role.allDistricts && <div style={{ fontSize: 12, color: P.accent, fontWeight: 600, padding: "8px 14px", background: P.accentGlow, borderRadius: 8 }}>Showing alerts for {role.district} only</div>}
+    {alerts.length === 0 && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 40, textAlign: "center", color: P.textDim }}>No active alerts. All metrics within thresholds.</div>}
+    {critical.length > 0 && <><div style={{ fontSize: 13, fontWeight: 700, color: P.red, textTransform: "uppercase", letterSpacing: "0.05em" }}>Critical</div>{critical.map((a, i) => <AlertCard key={`c${i}`} a={a} color={P.red} />)}</>}
+    {warnings.length > 0 && <><div style={{ fontSize: 13, fontWeight: 700, color: P.amber, textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 8 }}>Warnings</div>{warnings.map((a, i) => <AlertCard key={`w${i}`} a={a} color={P.amber} />)}</>}
+  </div>;
+}
+
 // ─── Reports ───
-function Reports({ rawRows }) {
+function Reports({ rawRows, role }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
@@ -335,7 +388,8 @@ function Reports({ rawRows }) {
   const fst = computeTotals(fdd);
   const s = fdd.find(d => d.id === sel);
 
-  const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
+  const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
+  const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
 
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -407,6 +461,9 @@ function Reports({ rawRows }) {
         <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames}/>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: P.blue }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: P.amber }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
+
+      {/* Alerts */}
+      {tab === "alerts" && showAlerts && <Alerts dd={fdd} role={role} />}
     </div>
   </div>;
 }
@@ -455,7 +512,7 @@ function Chat({ dd, st }) {
 }
 
 // ─── Data Ingestion ───
-function Ingest({ dd, rawRows, onUpdate, history, onHistory }) {
+function Ingest({ dd, rawRows, onUpdate, history, onHistory, role }) {
   const [dragOver, setDragOver] = useState(false);
   const [result, setResult] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -484,6 +541,17 @@ const confirm = async () => {
       hr_in_position: r.hr_in_position,
       drug_availability_pct: r.drug_availability_pct,
     }));
+    // RBAC: District Manager can only upload data for their assigned district
+    if (role && !role.allDistricts) {
+      const allowed = role.district.toLowerCase();
+      const bad = payload.filter(r => r.district_name?.toLowerCase() !== allowed);
+      if (bad.length > 0) {
+        const badNames = [...new Set(bad.map(r => r.district_name))].join(", ");
+        alert(`Upload blocked: You can only upload data for ${role.district}. Found: ${badNames}`);
+        setImporting(false);
+        return;
+      }
+    }
     const res = await fetch("/api/aggregate/upload", {
       method: "POST",
       headers: {
@@ -917,10 +985,19 @@ function HealthWorker() {
 
 // ─── Main App ───
 export default function App() {
-  const [section, setSection] = useState("reports");
+  const [roleKey, setRoleKey] = useState("admin");
+  const role = ROLES[roleKey];
+  const [section, setSection] = useState(role.sections[0]);
   const [rawRows, setRawRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hist, setHist] = useState([]);
+
+  // When role changes, reset to first allowed section
+  useEffect(() => {
+    if (!ROLES[roleKey].sections.includes(section)) {
+      setSection(ROLES[roleKey].sections[0]);
+    }
+  }, [roleKey]);
 
   // Fetch raw rows from API on mount
   useEffect(() => {
@@ -939,7 +1016,6 @@ export default function App() {
     })();
   }, []);
 
-  // Re-fetch after upload
   const refreshData = async () => {
     try {
       const res = await fetch("/api/aggregate/list");
@@ -948,32 +1024,53 @@ export default function App() {
     } catch (e) { console.error(e); }
   };
 
-  // Aggregate for components that need district-level objects
-  const dd = aggregateRows(rawRows, {}, rawRows);
+  // For district manager, filter raw rows to their district
+  const visibleRows = role.allDistricts ? rawRows : rawRows.filter(r => r.district_name === role.district);
+  const dd = aggregateRows(visibleRows, {}, visibleRows);
   const st = computeTotals(dd);
   const addHist = async (entry) => { const nh = [entry, ...hist].slice(0, 20); setHist(nh); try { await window.storage.set("ncd-history", JSON.stringify(nh)); } catch (e) {} };
   const time = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
+  const allNav = [
+    { id: "reports", icon: I.Report, l: "Reports" },
+    { id: "chat", icon: I.Chat, l: "AI Assistant", badge: "AI" },
+    { id: "ingest", icon: I.Upload, l: "Upload" },
+    { id: "fieldwork", icon: I.Heart, l: "Field App" },
+  ];
+  const visibleNav = allNav.filter(n => role.sections.includes(n.id));
+  const roleColors = { admin: P.accent, district_manager: P.purple, field_worker: P.green, analyst: P.blue };
+
   return <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: P.bg, color: P.text, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
     <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}textarea{font-family:'DM Sans',sans-serif}select{font-family:'DM Sans',sans-serif}`}</style>
 
-    <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+    <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff" }}>N</div>
         <div><div style={{ fontSize: 16, fontWeight: 800 }}>NCD Analytics</div><div style={{ fontSize: 10, color: P.textDim, textTransform: "uppercase", letterSpacing: "0.04em" }}>State Health Dept — AI Surveillance</div></div>
       </div>
-      <span style={{ fontSize: 12, color: P.textDim }}>{time}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ fontSize: 11, color: P.textDim }}>{time}</span>
+        <select value={roleKey} onChange={e => setRoleKey(e.target.value)} style={{ background: P.surfaceAlt, border: `1px solid ${roleColors[roleKey]}50`, borderRadius: 8, padding: "6px 12px", color: roleColors[roleKey], fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer" }}>
+          {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
     </header>
 
-    <div style={{ display: "flex", borderBottom: `1px solid ${P.border}` }}>
-       {[{ id: "reports", icon: I.Report, l: "Reports" }, { id: "chat", icon: I.Chat, l: "AI Assistant", badge: "AI" }, { id: "ingest", icon: I.Upload, l: "Data Upload" }, { id: "fieldwork", icon: I.Heart, l: "Field App" }].map(s => <button key={s.id} onClick={() => setSection(s.id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}><s.icon /> {s.l}{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
+    <div style={{ display: "flex", borderBottom: `1px solid ${P.border}`, overflowX: "auto" }}>
+      {visibleNav.map(s => <button key={s.id} onClick={() => setSection(s.id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}><s.icon /> {s.l}{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
+    </div>
+
+    <div style={{ padding: "6px 24px", background: `${roleColors[roleKey]}10`, borderBottom: `1px solid ${roleColors[roleKey]}20`, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: roleColors[roleKey] }} />
+      <span style={{ fontSize: 11, color: roleColors[roleKey], fontWeight: 600 }}>{role.label}</span>
+      {!role.allDistricts && role.district && <span style={{ fontSize: 11, color: P.textDim }}>· Data restricted to {role.district}</span>}
     </div>
 
     <div style={{ flex: 1, overflow: "hidden" }}>
       {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
-      {!loading && section === "reports" && <Reports rawRows={rawRows} />}
+      {!loading && section === "reports" && <Reports rawRows={visibleRows} role={role} />}
       {!loading && section === "chat" && <Chat dd={dd} st={st} />}
-      {!loading && section === "ingest" && <Ingest dd={dd} rawRows={rawRows} onUpdate={() => refreshData()} history={hist} onHistory={addHist} />}
+      {!loading && section === "ingest" && <Ingest dd={dd} rawRows={visibleRows} onUpdate={() => refreshData()} history={hist} onHistory={addHist} role={role} />}
       {!loading && section === "fieldwork" && <HealthWorker />}
     </div>
   </div>;
