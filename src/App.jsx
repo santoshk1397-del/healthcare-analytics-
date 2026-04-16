@@ -657,13 +657,10 @@ function Chat({ dd, st, rawRows }) {
     try {
       const ctx = buildContext();
       const apiMsgs = next.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-10);
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+     const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
           system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials. You have access to the complete NCD surveillance dataset AND can search the web for current research, WHO/NPCDCS guidelines, and evidence-based interventions.
 
 DATASET:
