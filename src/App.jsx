@@ -586,12 +586,10 @@ function HealthWorker() {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // create patient form
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("Male");
 
-  // screening
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [disease, setDisease] = useState("Diabetes");
   const [severity, setSeverity] = useState("Mild");
@@ -623,7 +621,6 @@ function HealthWorker() {
 
       setPatients(json.data || []);
     } catch (e) {
-      console.error(e);
       alert("Failed to fetch patients");
     }
     setLoading(false);
@@ -643,14 +640,8 @@ function HealthWorker() {
     try {
       const res = await fetch("/api/patients/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          dob,
-          gender,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, dob, gender }),
       });
 
       const text = await res.text();
@@ -659,14 +650,10 @@ function HealthWorker() {
       if (!res.ok) throw new Error(json.error);
 
       alert("Patient created");
-
       setName("");
       setDob("");
-      setGender("Male");
-
       fetchPatients();
     } catch (e) {
-      console.error(e);
       alert(e.message);
     }
   };
@@ -681,9 +668,7 @@ function HealthWorker() {
     try {
       const res = await fetch("/api/screenings/create", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patient_id: selectedPatientId,
           disease,
@@ -698,74 +683,105 @@ function HealthWorker() {
 
       alert("Screening created");
     } catch (e) {
-      console.error(e);
       alert(e.message);
     }
   };
 
-  // ─── UI ───
   return (
-    <div style={{ padding: 24, color: "#E2E8F0" }}>
+    <div className="p-6 text-slate-200">
       
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-        <button onClick={() => setTab("create")}>Create Patient</button>
-        <button onClick={() => setTab("list")}>Patient List</button>
-        <button onClick={() => setTab("screening")}>Create Screening</button>
+      <div className="flex gap-3 mb-6">
+        {["create", "list", "screening"].map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-xl text-sm ${
+              tab === t
+                ? "bg-blue-600"
+                : "bg-slate-800 hover:bg-slate-700"
+            }`}
+          >
+            {t === "create" && "Create Patient"}
+            {t === "list" && "Patient List"}
+            {t === "screening" && "Create Screening"}
+          </button>
+        ))}
       </div>
 
       {/* ─── CREATE PATIENT ─── */}
       {tab === "create" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 400 }}>
+        <div className="bg-slate-900 p-6 rounded-2xl max-w-md space-y-4 shadow">
+          <h2 className="text-lg font-semibold">Create Patient</h2>
+
           <input
-            placeholder="Name"
+            className="w-full p-2 rounded bg-slate-800"
+            placeholder="Patient Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
 
           <input
             type="date"
+            className="w-full p-2 rounded bg-slate-800"
             value={dob}
             onChange={(e) => setDob(e.target.value)}
           />
 
-          {/* Age preview */}
           {dob && (
-            <div style={{ fontSize: 12, color: "#94A3B8" }}>
-              Age: {calculateAge(dob)} yrs
+            <div className="text-xs text-slate-400">
+              Age: {calculateAge(dob)} years
             </div>
           )}
 
-          <select value={gender} onChange={(e) => setGender(e.target.value)}>
+          <select
+            className="w-full p-2 rounded bg-slate-800"
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+          >
             {GENDERS.map(g => (
               <option key={g}>{g}</option>
             ))}
           </select>
 
-          <button onClick={createPatient}>Create</button>
+          <button
+            onClick={createPatient}
+            className="w-full bg-blue-600 hover:bg-blue-500 p-2 rounded-xl"
+          >
+            Create Patient
+          </button>
         </div>
       )}
 
       {/* ─── PATIENT LIST ─── */}
       {tab === "list" && (
-        <div>
-          {loading ? "Loading..." : (
-            <table style={{ width: "100%", marginTop: 10 }}>
-              <thead>
+        <div className="bg-slate-900 p-6 rounded-2xl shadow">
+          <h2 className="text-lg font-semibold mb-4">Patient List</h2>
+
+          {loading ? (
+            "Loading..."
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="text-slate-400">
                 <tr>
-                  <th>Name</th>
+                  <th className="text-left">Name</th>
                   <th>Age</th>
                   <th>Gender</th>
                   <th>ABHA ID</th>
                 </tr>
               </thead>
+
               <tbody>
                 {patients.map(p => (
-                  <tr key={p.id}>
-                    <td>{p.name}</td>
-                    <td>{p.dob ? calculateAge(p.dob) : "—"}</td>
-                    <td>{p.gender}</td>
-                    <td>{p.abha_id || "—"}</td>
+                  <tr key={p.id} className="border-t border-slate-800">
+                    <td className="py-2">{p.name}</td>
+                    <td className="text-center">
+                      {p.dob ? calculateAge(p.dob) : "—"}
+                    </td>
+                    <td className="text-center">{p.gender}</td>
+                    <td className="text-center">
+                      {p.abha_id || "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -776,9 +792,11 @@ function HealthWorker() {
 
       {/* ─── CREATE SCREENING ─── */}
       {tab === "screening" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 400 }}>
-          
+        <div className="bg-slate-900 p-6 rounded-2xl max-w-md space-y-4 shadow">
+          <h2 className="text-lg font-semibold">Create Screening</h2>
+
           <select
+            className="w-full p-2 rounded bg-slate-800"
             value={selectedPatientId}
             onChange={(e) => setSelectedPatientId(e.target.value)}
           >
@@ -790,19 +808,32 @@ function HealthWorker() {
             ))}
           </select>
 
-          <select value={disease} onChange={(e) => setDisease(e.target.value)}>
+          <select
+            className="w-full p-2 rounded bg-slate-800"
+            value={disease}
+            onChange={(e) => setDisease(e.target.value)}
+          >
             {DISEASES.map(d => (
               <option key={d}>{d}</option>
             ))}
           </select>
 
-          <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+          <select
+            className="w-full p-2 rounded bg-slate-800"
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value)}
+          >
             {SEVERITY.map(s => (
               <option key={s}>{s}</option>
             ))}
           </select>
 
-          <button onClick={createScreening}>Create Screening</button>
+          <button
+            onClick={createScreening}
+            className="w-full bg-green-600 hover:bg-green-500 p-2 rounded-xl"
+          >
+            Create Screening
+          </button>
         </div>
       )}
     </div>
