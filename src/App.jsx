@@ -585,7 +585,7 @@ function Reports({ rawRows, role }) {
 
 // ─── AI Chat ───
 function Chat({ dd, st, rawRows }) {
-  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state, including month-by-month breakdowns and year-over-year trends.\n\nI can also search the web for evidence-based guidelines, research, and intervention strategies.\n\nTry asking:\n• What are the biggest gaps in Raipur?\n• Why are diabetes cases increasing in Bastar?\n• Compare screening performance across zones\n• Recommend interventions based on WHO guidelines\n\nHow can I help?" }]);
+  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state, including month-by-month breakdowns and year-over-year trends.\n\nI can also search the web for evidence-based guidelines, research, and intervention strategies.\nHow can I help?" }]);
   const [inp, setInp] = useState(""); const [loading, setLoading] = useState(false);
   const endRef = useRef(null); const inpRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
