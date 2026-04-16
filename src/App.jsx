@@ -349,7 +349,7 @@ function Reports({ rawRows }) {
 
       {/* Heatmap */}
       {tab === "heatmap" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} showMonth={false} />
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
         <Heatmap dd={fdd} />
       </div>}
 
