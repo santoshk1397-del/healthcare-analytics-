@@ -521,7 +521,7 @@ const confirm = async () => {
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.accent }}>{dd.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Districts</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{dd.reduce((s, d) => s + d.totalCases, 0).toLocaleString()}</div><div style={{ fontSize: 11, color: P.textDim }}>Total Cases</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{DISEASES.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Diseases</div></div>
-        <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>12</div><div style={{ fontSize: 11, color: P.textDim }}>Months</div></div>
+        <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>25</div><div style={{ fontSize: 11, color: P.textDim }}>Months</div></div>
       </div>
     </div>
 
