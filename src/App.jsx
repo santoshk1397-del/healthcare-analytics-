@@ -20,6 +20,11 @@ const DISEASES = ["Diabetes", "Hypertension", "Cardiovascular", "COPD", "Cancer"
 const MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
 const QUARTERS = ["Q1 2024-25", "Q2 2024-25", "Q3 2024-25", "Q4 2024-25"];
 const YEAR = 2026
+const YEARS = [2024, 2025, 2026];
+const SEVERITY = ["Mild", "Moderate", "Severe"];
+const GENDERS = ["Male", "Female", "Other"];
+const AGE_GROUPS = ["0-14", "15-29", "30-44", "45-59", "60+"];
+
 
 // ─── CSV Template Generator ───
 const CSV_HEADERS = "district_name,month,year,disease_type,cases,screening_target,screening_achieved,budget_allocated_lakhs,budget_utilized_lakhs,hr_sanctioned,hr_in_position,drug_availability_pct";
@@ -138,6 +143,11 @@ const I = {
   Warn: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   Trash: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
   File: () => <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  Heart: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
+  Plus: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  List: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  Eye: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+  Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
 };
 
 // ─── Shared UI ───
@@ -157,6 +167,36 @@ function Donut({ data, size = 160 }) {
   let cum = 0; const segs = data.map(d => { const s = cum; cum += d.cases / total; return { ...d, s, e: cum }; });
   const r = size / 2 - 12, cx = size / 2, cy = size / 2;
   return <div style={{ display: "flex", alignItems: "center", gap: 20 }}><svg width={size} height={size}>{segs.map((seg, i) => { const sa = seg.s * 2 * Math.PI - Math.PI / 2, ea = seg.e * 2 * Math.PI - Math.PI / 2; return <path key={i} d={`M${cx},${cy} L${cx + r * Math.cos(sa)},${cy + r * Math.sin(sa)} A${r},${r} 0 ${ea - sa > Math.PI ? 1 : 0} 1 ${cx + r * Math.cos(ea)},${cy + r * Math.sin(ea)} Z`} fill={DC[seg.disease] || P.accent} opacity="0.85" stroke={P.surface} strokeWidth="2" />; })}<circle cx={cx} cy={cy} r={r * 0.55} fill={P.surface} /><text x={cx} y={cy - 4} textAnchor="middle" fill={P.text} fontSize="18" fontWeight="700">{(total / 1000).toFixed(0)}k</text><text x={cx} y={cy + 12} textAnchor="middle" fill={P.textDim} fontSize="9">TOTAL</text></svg><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{data.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}><div style={{ width: 8, height: 8, borderRadius: 2, background: DC[d.disease] || P.accent }} /><span style={{ color: P.textMuted, minWidth: 90 }}>{d.disease}</span><span style={{ color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div></div>;
+}
+
+// ─── Filter Bar ───
+const selStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", minWidth: 100 };
+
+function FilterBar({ district, setDistrict, month, setMonth, year, setYear, districts, showMonth = true, showYear = true }) {
+  return <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>District</span>
+      <select value={district} onChange={e => setDistrict(e.target.value)} style={selStyle}>
+        <option value="all">All Districts</option>
+        {districts.map(d => <option key={d} value={d}>{d}</option>)}
+      </select>
+    </div>
+    {showMonth && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>Month</span>
+      <select value={month} onChange={e => setMonth(e.target.value)} style={selStyle}>
+        <option value="all">All Months</option>
+        {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+      </select>
+    </div>}
+    {showYear && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>Year</span>
+      <select value={year} onChange={e => setYear(e.target.value)} style={selStyle}>
+        <option value="all">All Years</option>
+        {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>}
+    {(district !== "all" || month !== "all" || year !== "all") && <button onClick={() => { setDistrict("all"); setMonth("all"); setYear("all"); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Clear filters</button>}
+  </div>;
 }
 
 // ─── Heatmap ───
@@ -201,54 +241,88 @@ function Heatmap({ dd }) {
 function Reports({ dd, st }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
-  const s = dd.find(d => d.id === sel);
+  const [fDistrict, setFDistrict] = useState("all");
+  const [fMonth, setFMonth] = useState("all");
+  const [fYear, setFYear] = useState("all");
+  const districtNames = dd.map(d => d.name);
+
+  // Filter data
+  const fdd = fDistrict === "all" ? dd : dd.filter(d => d.name === fDistrict);
+  const fst = computeTotals(fdd);
+  const s = fdd.find(d => d.id === sel);
+
   const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
-  const totDis = DISEASES.map(dis => ({ disease: dis, cases: dd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
+  const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
 
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
     <div style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "auto" }}>
       {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
     </div>
     <div style={{ flex: 1, overflow: "auto", padding: 28 }}>
-      {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+
+      {/* Dashboard */}
+      {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>State Dashboard</div>
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
-          <KPI icon={I.Activity} label="Total Cases" value={st.totalCases.toLocaleString()} sub={`Pop: ${(st.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
-          <KPI icon={I.Target} label="Screening" value={`${st.avgScreening}%`} color={P.green} />
-          <KPI icon={I.Wallet} label="Budget Util." value={`${st.avgBudgetUtil}%`} sub={`₹${(st.totalBudget / 1e7).toFixed(0)} Cr`} color={P.purple} />
-          <KPI icon={I.Pill} label="Drug Avail." value={`${st.avgDrugAvail}%`} color={P.amber} />
-          <KPI icon={I.Users} label="HR Filled" value={`${st.avgHrFill}%`} color={P.blue} />
+          <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
+          <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} color={P.green} />
+          <KPI icon={I.Wallet} label="Budget Util." value={`${fst.avgBudgetUtil}%`} sub={`₹${(fst.totalBudget / 1e7).toFixed(0)} Cr`} color={P.purple} />
+          <KPI icon={I.Pill} label="Drug Avail." value={`${fst.avgDrugAvail}%`} color={P.amber} />
+          <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} color={P.blue} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Disease Distribution</div><Donut data={totDis} /></div>
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Monthly Registrations</div><BarChart data={MONTHS.map((m, i) => ({ m, c: dd.reduce((sum, d) => sum + (d.monthlyTrend[i]?.cases || 0), 0) }))} lk="m" vk="c" h={180} /></div>
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Monthly Registrations</div><BarChart data={MONTHS.map((m, i) => ({ m, c: fdd.reduce((sum, d) => sum + (d.monthlyTrend[i]?.cases || 0), 0) }))} lk="m" vk="c" h={180} /></div>
         </div>
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>District Performance</div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead><tr>{["District", "Cases", "Screening", "Drugs", "Budget"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: h === "District" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
-              <tbody>{dd.map(d => <tr key={d.id} onClick={() => setSel(d.id)} style={{ cursor: "pointer", background: sel === d.id ? P.accentGlow : "transparent" }} onMouseEnter={e => { if (sel !== d.id) e.currentTarget.style.background = P.surfaceAlt; }} onMouseLeave={e => { if (sel !== d.id) e.currentTarget.style.background = "transparent"; }}>
-                <td style={{ padding: "11px 14px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
-                <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.totalCases.toLocaleString()}</td>
-                <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}><Bar value={parseFloat(d.screeningRate)} color={parseFloat(d.screeningRate) > 65 ? P.green : parseFloat(d.screeningRate) > 45 ? P.amber : P.red} /><span style={{ color: P.text, minWidth: 36 }}>{d.screeningRate}%</span></div></td>
-                <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}`, color: parseFloat(d.drugAvailability) > 75 ? P.green : parseFloat(d.drugAvailability) > 55 ? P.amber : P.red, fontWeight: 600 }}>{d.drugAvailability}%</td>
-                <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}`, color: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red, fontWeight: 600 }}>{(d.budgetUtilized * 100).toFixed(1)}%</td>
-              </tr>)}</tbody>
-            </table>
-          </div>
+          <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr>{["District","Cases","Screening","Drugs","Budget"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: h === "District" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
+            <tbody>{fdd.map(d => <tr key={d.id} onClick={() => setSel(d.id)} style={{ cursor: "pointer", background: sel === d.id ? P.accentGlow : "transparent" }} onMouseEnter={e => { if (sel !== d.id) e.currentTarget.style.background = P.surfaceAlt; }} onMouseLeave={e => { if (sel !== d.id) e.currentTarget.style.background = "transparent"; }}>
+              <td style={{ padding: "11px 14px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
+              <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.totalCases.toLocaleString()}</td>
+              <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}><Bar value={parseFloat(d.screeningRate)} color={parseFloat(d.screeningRate) > 65 ? P.green : parseFloat(d.screeningRate) > 45 ? P.amber : P.red} /><span style={{ color: P.text, minWidth: 36 }}>{d.screeningRate}%</span></div></td>
+              <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}`, color: parseFloat(d.drugAvailability) > 75 ? P.green : parseFloat(d.drugAvailability) > 55 ? P.amber : P.red, fontWeight: 600 }}>{d.drugAvailability}%</td>
+              <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}`, color: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red, fontWeight: 600 }}>{(d.budgetUtilized * 100).toFixed(1)}%</td>
+            </tr>)}</tbody>
+          </table></div>
         </div>
         {s && <div style={{ background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 12, padding: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone · Pop: {(s.population / 1e5).toFixed(1)}L</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
             <BarChart data={s.monthlyTrend} lk="month" vk="cases" color={P.accent} h={160} />
           </div>
         </div>}
       </div>}
-      {tab === "heatmap" && <Heatmap dd={dd} />}
-      {tab === "screening" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Screening Coverage</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>{[...dd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => { const r = parseFloat(d.screeningRate); const c = r > 65 ? P.green : r > 45 ? P.amber : P.red; return <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{d.name}</span><span style={{ fontSize: 22, fontWeight: 800, color: c }}>{d.screeningRate}%</span></div><Bar value={r} color={c} h={8} /><div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: P.textDim }}><span>Target: {(d.screeningTarget / 1000).toFixed(0)}k</span><span>Done: {(d.screeningAchieved / 1000).toFixed(0)}k</span></div></div>; })}</div></div>}
-      {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>{DISEASES.map(dis => { const ma = MONTHS.map((m, i) => ({ m, c: dd.reduce((sum, d) => sum + Math.round((d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0) / 12 * (0.8 + Math.sin(i * 0.7) * 0.3)), 0) })); const t = dd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={ma} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div></div>}
-      {tab === "budget" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...dd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: P.blue }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: P.amber }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div></div>}
+
+      {/* Heatmap */}
+      {tab === "heatmap" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} showMonth={false} />
+        <Heatmap dd={fdd} />
+      </div>}
+
+      {/* Screening */}
+      {tab === "screening" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Screening Coverage</div>
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>{[...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => { const r = parseFloat(d.screeningRate); const c = r > 65 ? P.green : r > 45 ? P.amber : P.red; return <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{d.name}</span><span style={{ fontSize: 22, fontWeight: 800, color: c }}>{d.screeningRate}%</span></div><Bar value={r} color={c} h={8} /><div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: P.textDim }}><span>Target: {(d.screeningTarget / 1000).toFixed(0)}k</span><span>Done: {(d.screeningAchieved / 1000).toFixed(0)}k</span></div></div>; })}</div>
+      </div>}
+
+      {/* Disease Trends — with district filter */}
+      {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div>
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>{DISEASES.map(dis => { const ma = MONTHS.map((m, i) => ({ m, c: fdd.reduce((sum, d) => sum + Math.round((d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0) / 12 * (0.8 + Math.sin(i * 0.7) * 0.3)), 0) })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={ma} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
+      </div>}
+
+      {/* Budget */}
+      {tab === "budget" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</div>
+        <FilterBar district={fDistrict} setDistrict={setFDistrict} month={fMonth} setMonth={setFMonth} year={fYear} setYear={setFYear} districts={districtNames} showMonth={false} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: P.blue }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: P.amber }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
+      </div>}
     </div>
   </div>;
 }
@@ -416,6 +490,164 @@ const confirm = async () => {
   </div></div>;
 }
 
+// ─── Health Worker Mobile Section ───
+function HealthWorker() {
+  const [view, setView] = useState("home");
+  const [patients, setPatients] = useState([
+    { id: "P001", name: "Ramesh Kumar", age: 52, gender: "Male", district: "Raipur", disease: "Diabetes", phone: "9876543210", registeredAt: "2026-03-15" },
+    { id: "P002", name: "Sunita Devi", age: 45, gender: "Female", district: "Raipur", disease: "Hypertension", phone: "9876543211", registeredAt: "2026-03-18" },
+    { id: "P003", name: "Mohan Lal", age: 63, gender: "Male", district: "Bastar", disease: "COPD", phone: "9876543212", registeredAt: "2026-04-01" },
+  ]);
+  const [screenings, setScreenings] = useState([
+    { id: "S001", patientId: "P001", patientName: "Ramesh Kumar", type: "Blood Sugar", result: "Fasting: 142 mg/dL", date: "2026-04-10", status: "Abnormal" },
+    { id: "S002", patientId: "P002", patientName: "Sunita Devi", type: "BP Check", result: "148/92 mmHg", date: "2026-04-11", status: "Abnormal" },
+  ]);
+  const [observations, setObservations] = useState([
+    { id: "O001", patientId: "P001", patientName: "Ramesh Kumar", note: "Patient non-compliant with medication. Advised strict diet control.", date: "2026-04-10", severity: "Moderate" },
+  ]);
+  const [form, setForm] = useState({});
+  const resetForm = () => setForm({});
+
+  const fSelStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 10, padding: "12px 14px", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", width: "100%" };
+
+  const savePatient = () => {
+    if (!form.name || !form.age || !form.disease) return alert("Fill required fields");
+    setPatients([{ id: "P" + String(patients.length + 1).padStart(3, "0"), name: form.name, age: parseInt(form.age), gender: form.gender || "Male", district: form.district || "Raipur", disease: form.disease, phone: form.phone || "", registeredAt: new Date().toISOString().split("T")[0] }, ...patients]);
+    resetForm(); setView("patients");
+  };
+  const saveScreening = () => {
+    if (!form.patientId || !form.type || !form.result) return alert("Fill required fields");
+    const pt = patients.find(p => p.id === form.patientId);
+    setScreenings([{ id: "S" + String(screenings.length + 1).padStart(3, "0"), patientId: form.patientId, patientName: pt?.name || "Unknown", type: form.type, result: form.result, date: new Date().toISOString().split("T")[0], status: form.status || "Normal" }, ...screenings]);
+    resetForm(); setView("screenings");
+  };
+  const saveObs = () => {
+    if (!form.patientId || !form.note) return alert("Fill required fields");
+    const pt = patients.find(p => p.id === form.patientId);
+    setObservations([{ id: "O" + String(observations.length + 1).padStart(3, "0"), patientId: form.patientId, patientName: pt?.name || "Unknown", note: form.note, date: new Date().toISOString().split("T")[0], severity: form.severity || "Mild" }, ...observations]);
+    resetForm(); setView("observations");
+  };
+
+  const F = (label, key, type = "text", opts) => <div style={{ marginBottom: 16 }}>
+    <label style={{ fontSize: 12, fontWeight: 600, color: P.textMuted, display: "block", marginBottom: 6 }}>{label}</label>
+    {opts ? <select value={form[key] || ""} onChange={e => setForm({ ...form, [key]: e.target.value })} style={fSelStyle}>
+      <option value="">Select...</option>{opts.map(o => <option key={o.v || o} value={o.v || o}>{o.l || o}</option>)}
+    </select> : <input type={type} value={form[key] || ""} onChange={e => setForm({ ...form, [key]: e.target.value })} style={{ ...fSelStyle }} />}
+  </div>;
+
+  const Header = ({ title, back }) => <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+    {back && <button onClick={() => { setView("home"); resetForm(); }} style={{ background: "none", border: "none", color: P.textMuted, cursor: "pointer", padding: 4 }}><I.Back /></button>}
+    <span style={{ fontSize: 17, fontWeight: 700, color: P.text }}>{title}</span>
+  </div>;
+
+  const Card = ({ top, mid, bottom, color }) => <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 16, borderLeft: `3px solid ${color || P.accent}` }}>
+    <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{top}</div>
+    {mid && <div style={{ fontSize: 12, color: P.textMuted, marginTop: 4 }}>{mid}</div>}
+    {bottom && <div style={{ fontSize: 11, color: P.textDim, marginTop: 6 }}>{bottom}</div>}
+  </div>;
+
+  const statusColor = (s) => s === "Abnormal" ? P.red : s === "Borderline" ? P.amber : P.green;
+  const sevColor = (s) => s === "Severe" ? P.red : s === "Moderate" ? P.amber : P.green;
+
+  return <div style={{ height: "100%", display: "flex", justifyContent: "center", background: P.bg }}>
+    <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", borderLeft: `1px solid ${P.border}`, borderRight: `1px solid ${P.border}`, height: "100%" }}>
+
+      {view === "home" && <>
+        <div style={{ padding: "20px 20px 12px", background: P.surface, borderBottom: `1px solid ${P.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: `linear-gradient(135deg, ${P.green}, ${P.accent})`, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Heart /></div>
+            <div><div style={{ fontSize: 16, fontWeight: 800, color: P.text }}>Health Worker</div><div style={{ fontSize: 10, color: P.textDim, textTransform: "uppercase" }}>NCD Field App</div></div>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: P.textDim, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quick Actions</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+            {[
+              { l: "Add Patient", icon: I.Plus, color: P.accent, v: "addPatient" },
+              { l: "Add Screening", icon: I.Target, color: P.green, v: "addScreening" },
+              { l: "Add Observation", icon: I.Eye, color: P.purple, v: "addObs" },
+              { l: "My Patients", icon: I.Users, color: P.blue, v: "patients", count: patients.length },
+            ].map(a => <button key={a.v} onClick={() => { resetForm(); setView(a.v); }} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 14, padding: "20px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, cursor: "pointer", position: "relative" }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: `${a.color}18`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color }}><a.icon /></div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: P.text }}>{a.l}</span>
+              {a.count !== undefined && <span style={{ position: "absolute", top: 10, right: 12, background: a.color, color: "#fff", fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 10 }}>{a.count}</span>}
+            </button>)}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: P.textDim, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Records</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[{ v: "screenings", l: "Screenings", count: screenings.length, color: P.accent }, { v: "observations", l: "Observations", count: observations.length, color: P.purple }].map(r => <button key={r.v} onClick={() => setView(r.v)} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}><I.List /><span style={{ fontSize: 13, fontWeight: 600, color: P.text }}>{r.l}</span></div>
+              <span style={{ fontSize: 12, color: r.color, fontWeight: 700 }}>{r.count}</span>
+            </button>)}
+          </div>
+        </div>
+      </>}
+
+      {view === "addPatient" && <>
+        <Header title="Register Patient" back />
+        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+          {F("Full Name *", "name")}
+          {F("Age *", "age", "number")}
+          {F("Gender", "gender", "text", GENDERS)}
+          {F("District", "district", "text", DISTRICTS_META.map(d => d.name))}
+          {F("Disease Type *", "disease", "text", DISEASES)}
+          {F("Phone", "phone", "tel")}
+          <button onClick={savePatient} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8 }}>Register Patient</button>
+        </div>
+      </>}
+
+      {view === "addScreening" && <>
+        <Header title="Add Screening" back />
+        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+          {F("Patient *", "patientId", "text", patients.map(p => ({ v: p.id, l: `${p.name} (${p.id})` })))}
+          {F("Type *", "type", "text", ["Blood Sugar", "BP Check", "BMI", "Lipid Profile", "HbA1c", "ECG", "Lung Function", "Oral Exam", "Breast Exam", "Cervical Screening"])}
+          {F("Result *", "result")}
+          {F("Status", "status", "text", ["Normal", "Borderline", "Abnormal"])}
+          <button onClick={saveScreening} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.green}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8 }}>Save Screening</button>
+        </div>
+      </>}
+
+      {view === "addObs" && <>
+        <Header title="Add Observation" back />
+        <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+          {F("Patient *", "patientId", "text", patients.map(p => ({ v: p.id, l: `${p.name} (${p.id})` })))}
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: P.textMuted, display: "block", marginBottom: 6 }}>Notes *</label>
+            <textarea value={form.note || ""} onChange={e => setForm({ ...form, note: e.target.value })} rows={4} style={{ width: "100%", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 10, padding: "12px 14px", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", resize: "vertical" }} />
+          </div>
+          {F("Severity", "severity", "text", SEVERITY)}
+          <button onClick={saveObs} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${P.purple}, ${P.accent})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", marginTop: 8 }}>Save Observation</button>
+        </div>
+      </>}
+
+      {view === "patients" && <>
+        <Header title={`Patients (${patients.length})`} back />
+        <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {patients.map(p => <Card key={p.id} top={`${p.name} · ${p.age}/${p.gender.charAt(0)}`} mid={`${p.disease} · ${p.district}`} bottom={`${p.id} · ${p.registeredAt}${p.phone ? " · " + p.phone : ""}`} color={DC[p.disease] || P.accent} />)}
+          {!patients.length && <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>No patients yet.</div>}
+        </div>
+      </>}
+
+      {view === "screenings" && <>
+        <Header title={`Screenings (${screenings.length})`} back />
+        <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {screenings.map(s => <Card key={s.id} top={`${s.patientName} — ${s.type}`} mid={<span>Result: <b style={{ color: statusColor(s.status) }}>{s.result}</b> · <span style={{ color: statusColor(s.status), fontWeight: 700 }}>{s.status}</span></span>} bottom={`${s.id} · ${s.date}`} color={statusColor(s.status)} />)}
+          {!screenings.length && <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>No screenings.</div>}
+        </div>
+      </>}
+
+      {view === "observations" && <>
+        <Header title={`Observations (${observations.length})`} back />
+        <div style={{ flex: 1, overflow: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {observations.map(o => <Card key={o.id} top={o.patientName} mid={o.note} bottom={<span>{o.id} · {o.date} · <span style={{ color: sevColor(o.severity), fontWeight: 700 }}>{o.severity}</span></span>} color={sevColor(o.severity)} />)}
+          {!observations.length && <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>No observations.</div>}
+        </div>
+      </>}
+
+    </div>
+  </div>;
+}
+
 // ─── Main App ───
 export default function App() {
   const [section, setSection] = useState("reports");
@@ -434,7 +666,7 @@ export default function App() {
   const time = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
   return <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: P.bg, color: P.text, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
-    <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}`}</style>
+    <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}`}textarea{font-family:'DM Sans',sans-serif}select{font-family:'DM Sans',sans-serif}</style>
 
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -445,13 +677,14 @@ export default function App() {
     </header>
 
     <div style={{ display: "flex", borderBottom: `1px solid ${P.border}` }}>
-      {[{ id: "reports", icon: I.Report, l: "Reports" }, { id: "chat", icon: I.Chat, l: "AI Assistant", badge: "AI" }, { id: "ingest", icon: I.Upload, l: "Data Upload" }].map(s => <button key={s.id} onClick={() => setSection(s.id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}><s.icon /> {s.l}{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
+       {[{ id: "reports", icon: I.Report, l: "Reports" }, { id: "chat", icon: I.Chat, l: "AI Assistant", badge: "AI" }, { id: "ingest", icon: I.Upload, l: "Data Upload" }, { id: "fieldwork", icon: I.Heart, l: "Field App" }].map(s => <button key={s.id} onClick={() => setSection(s.id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}><s.icon /> {s.l}{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
     </div>
 
-    <div style={{ flex: 1, overflow: "hidden" }}>
+  <div style={{ flex: 1, overflow: "hidden" }}>
       {section === "reports" && <Reports dd={dd} st={st} />}
       {section === "chat" && <Chat dd={dd} st={st} />}
       {section === "ingest" && <Ingest dd={dd} onUpdate={setDd} history={hist} onHistory={addHist} />}
+      {section === "fieldwork" && <HealthWorker />}
     </div>
   </div>;
 }
