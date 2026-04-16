@@ -165,7 +165,29 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all" } =
     budgetUtilized: d._budA > 0 ? d._budU / d._budA : 0,
     hrSanctioned: d._hrS, hrFilled: d._hrS > 0 ? d._hrF / d._hrS : 0,
     drugAvailability: d._drugN > 0 ? (d._drugSum / d._drugN).toFixed(1) : "0",
-    diseaseBreakdown: DISEASES.map(disease => ({ disease, cases: d._disease[disease] || 0, trend: 0 })),
+    diseaseBreakdown: DISEASES.map(disease => {
+      const cases = d._disease[disease] || 0;
+      const relevantRows = fullSet.filter(r => r.district_name === d.name && r.disease_type === disease);
+      const yearsInData = [...new Set(relevantRows.map(r => {
+        const y = r.year || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+        return y ? Number(y) : null;
+      }).filter(Boolean))].sort();
+      let trend = 0;
+      if (yearsInData.length >= 2) {
+        const currentYear = year !== "all" ? Number(year) : yearsInData[yearsInData.length - 1];
+        const prevYear = yearsInData[yearsInData.indexOf(currentYear) - 1] || yearsInData[yearsInData.length - 2];
+        if (currentYear && prevYear && currentYear !== prevYear) {
+          const getYear = r => Number(r.year) || (r.month_date ? new Date(r.month_date).getFullYear() : null);
+          let curRows = relevantRows.filter(r => getYear(r) === currentYear);
+          let prevRows = relevantRows.filter(r => getYear(r) === prevYear);
+          if (month !== "all") { curRows = curRows.filter(r => r.month === month); prevRows = prevRows.filter(r => r.month === month); }
+          const curCases = curRows.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+          const prevCases = prevRows.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+          if (prevCases > 0) trend = ((curCases - prevCases) / prevCases) * 100;
+        }
+      }
+      return { disease, cases, trend };
+    }),
     monthlyTrend: MONTHS.map(m => ({ month: m, cases: d._month[m] || 0, screenings: d._monthScr[m] || 0 })),
     quarterlyBudget: QUARTERS.map(q => ({ quarter: q, allocated: Math.round(d._budA * 100000 / 4), utilized: Math.round(d._budU * 100000 / 4) })),
   }));
