@@ -350,21 +350,7 @@ function KPI({ icon: Icon, label, value, sub, color }) {
 }
 function BarChart({ data, lk, vk, color = P.accent, h = 200 }) {
   const max = Math.max(...data.map(d => d[vk]), 1);
-  const scrollRef = useRef(null);
-  const needsScroll = data.length > 12;
-  useEffect(() => {
-    if (needsScroll && scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
-    }
-  }, [data, needsScroll]);
-  const barW = needsScroll ? 42 : undefined;
-  return <div ref={scrollRef} style={{ display: "flex", alignItems: "flex-end", gap: 3, height: h, padding: "0 4px", overflowX: needsScroll ? "auto" : "hidden", overflowY: "hidden" }}>
-    {data.map((d, i) => <div key={i} style={{ flex: needsScroll ? "none" : 1, width: barW, minWidth: needsScroll ? barW : 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-      <div style={{ fontSize: 9, color: P.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>{d[vk] >= 1000 ? (d[vk] / 1000).toFixed(0) + "k" : d[vk]}</div>
-      <div style={{ width: "100%", maxWidth: 32, height: Math.max((d[vk] / max) * (h - 28), 2), background: `linear-gradient(180deg, ${color}, ${color}88)`, borderRadius: "4px 4px 2px 2px" }} />
-      <div style={{ fontSize: 9, color: P.textDim, whiteSpace: "nowrap" }}>{d[lk]}</div>
-    </div>)}
-  </div>;
+  return <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: h, padding: "0 4px" }}>{data.map((d, i) => <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}><div style={{ fontSize: 9, color: P.textDim, fontWeight: 600 }}>{d[vk] >= 1000 ? (d[vk] / 1000).toFixed(0) + "k" : d[vk]}</div><div style={{ width: "100%", maxWidth: 32, height: Math.max((d[vk] / max) * (h - 24), 2), background: `linear-gradient(180deg, ${color}, ${color}88)`, borderRadius: "4px 4px 2px 2px" }} /><div style={{ fontSize: 9, color: P.textDim }}>{d[lk]}</div></div>)}</div>;
 }
 function Donut({ data, size = 160 }) {
   const total = data.reduce((s, d) => s + d.cases, 0);
