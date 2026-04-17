@@ -250,34 +250,29 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
 
 // ─── Palette ───
 const P = {
-  // 🧱 BACKGROUNDS (very soft, no pure white)
-  bg: "#F5F5F4",            // warm off-white (main background)
-  surface: "#FDFDFC",       // soft card (almost paper)
-  surfaceAlt: "#E7E5E4",    // inputs / filters
-
-  // 🪵 BORDERS (barely visible)
+  // 🧱 BACKGROUNDS
+  bg: "#F5F5F4",
+  surface: "#FDFDFC",
+  surfaceAlt: "#E7E5E4",
+  // 🪵 BORDERS
   border: "#E5E7EB",
   borderLight: "#F1F5F9",
-
-  // 📝 TEXT (soft, not harsh black)
-  text: "#1F2937",          // primary (charcoal)
-  textMuted: "#6B7280",     // secondary
-  textDim: "#9CA3AF",       // labels
-
-  // 🔶 ACCENT (very controlled orange)
-  accent: "#C2410C",        // muted burnt orange
+  // 📝 TEXT
+  text: "#1F2937",
+  textMuted: "#6B7280",
+  textDim: "#9CA3AF",
+  // 🔶 ACCENT
+  accent: "#C2410C",
   accentGlow: "rgba(194,65,12,0.08)",
-
-  // 🚦 STATUS (muted tones, no neon)
+  // 🚦 STATUS
   green: "#166534",
   red: "#991B1B",
   amber: "#B45309",
-  purple: "#6B7280",
+  purple: "#7E22CE",
   blue: "#1E40AF",
-
-  // 🎨 subtle backgrounds (for chips, highlights)
+  // 🎨 subtle backgrounds
   blueDim: "rgba(30,64,175,0.08)",
-  purpleDim: "rgba(107,114,128,0.08)",
+  purpleDim: "rgba(126,34,206,0.08)",
   amberDim: "rgba(180,83,9,0.08)"
 };
 const DC = { Diabetes: "#06B6D4", Hypertension: "#EF4444", Cardiovascular: "#F59E0B", COPD: "#8B5CF6", Cancer: "#EC4899", Stroke: "#10B981" };
@@ -979,7 +974,7 @@ const confirm = async () => {
           </table>
         </div>
         <div style={{ display: "flex", gap: 12, marginTop: 18, alignItems: "center" }}>
-          <button onClick={confirm} disabled={importing} style={{ padding: "10px 28px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, color: "#fff", opacity: importing ? 0.6 : 1 }}>{importing ? "Importing..." : `Import ${result.rowCount.toLocaleString()} rows`}</button>
+          <button onClick={confirm} disabled={importing} style={{ padding: "10px 28px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", background: `linear-gradient(135deg, ${P.accent}, #1a1a1a)`, color: "#fff", opacity: importing ? 0.6 : 1 }}>{importing ? "Importing..." : `Import ${result.rowCount.toLocaleString()} rows`}</button>
           <button onClick={() => setResult(null)} style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${P.border}`, background: "none", color: P.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans'" }}>Cancel</button>
         </div>
       </div>}
@@ -1204,7 +1199,7 @@ function HealthWorker() {
             {F("Gender", "gender", "text", GENDERS)}
             {F("District", "district_id", "text", DISTRICTS_META.map(d => ({ v: String(d.id), l: d.name })))}
             {F("Phone", "phone", "tel")}
-            <Btn onClick={savePatient} label="Register Patient" g={`${P.accent}, ${P.blue}`} />
+            <Btn onClick={savePatient} label="Register Patient" g={`${P.accent}, #1a1a1a`} />
           </div>
         </>}
 
@@ -1397,7 +1392,7 @@ export default function App() {
 
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.blue})`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff" }}>N</div>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, #1a1a1a)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff" }}>N</div>
         <div><div style={{ fontSize: 16, fontWeight: 800 }}>NCD Analytics</div><div style={{ fontSize: 10, color: P.textDim, textTransform: "uppercase", letterSpacing: "0.04em" }}>State Health Dept — AI Surveillance</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
