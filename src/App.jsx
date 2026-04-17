@@ -753,6 +753,12 @@ function Reports({ rawRows, role }) {
 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [aiExporting, setAiExporting] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [compareDistricts, setCompareDistricts] = useState([]);
+  const COMPARE_COLORS = ["#C2410C", "#1E40AF", "#7E22CE", "#059669"];
+  const addCompareDistrict = (name) => { if (name && !compareDistricts.includes(name) && compareDistricts.length < 4) setCompareDistricts([...compareDistricts, name]); };
+  const removeCompareDistrict = (name) => setCompareDistricts(compareDistricts.filter(d => d !== name));
+  const compareData = compareDistricts.map(name => fdd.find(d => d.name === name)).filter(Boolean);
 
   // ── Export AI Insights Presentation ──
   const exportAIInsights = async () => {
@@ -910,9 +916,93 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
         <div style={{ fontSize: 12, color: P.textDim, marginTop: 6 }}>Analyzing data and creating presentation</div>
       </div>
     </div>}
+    {/* ── Compare Modal ── */}
+    {showCompare && <div className="ncd-cmp-modal" onClick={e => { if (e.target === e.currentTarget) setShowCompare(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflow: "auto" }}>
+      <div className="ncd-cmp-box" style={{ background: P.surface, borderRadius: 14, width: "100%", maxWidth: 860, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Header */}
+        <div className="ncd-cmp-head" style={{ padding: "16px 24px", borderBottom: `1px solid ${P.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>Compare districts</div>
+          <button onClick={() => setShowCompare(false)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }}>Close</button>
+        </div>
+        {/* District picker */}
+        <div className="ncd-cmp-picker" style={{ padding: "12px 24px", borderBottom: `1px solid ${P.border}`, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", flexShrink: 0 }}>
+          <select value="" onChange={e => { addCompareDistrict(e.target.value); e.target.value = ""; }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer" }}>
+            <option value="">Add district...</option>
+            {fdd.filter(d => !compareDistricts.includes(d.name)).map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+          </select>
+          {compareDistricts.map((name, i) => <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 8px", borderRadius: 16, background: `${COMPARE_COLORS[i]}12`, border: `1px solid ${COMPARE_COLORS[i]}30`, fontSize: 12, fontWeight: 600, color: P.text }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: COMPARE_COLORS[i] }} />
+            {name}
+            <span onClick={() => removeCompareDistrict(name)} style={{ cursor: "pointer", color: P.textDim, fontSize: 11 }}>✕</span>
+          </span>)}
+          {compareDistricts.length < 2 && <span style={{ fontSize: 11, color: P.textDim }}>Select at least 2 districts</span>}
+        </div>
+        {/* Content */}
+        <div className="ncd-cmp-body" style={{ flex: 1, overflow: "auto", padding: 24 }}>
+          {compareData.length >= 2 ? <>
+            {/* Side by side cards */}
+            <div className="ncd-cmp-cards" style={{ display: "grid", gridTemplateColumns: `repeat(${compareData.length}, 1fr)`, gap: 12, marginBottom: 24 }}>
+              {compareData.map((d, i) => {
+                const scr = parseFloat(d.screeningRate), drug = parseFloat(d.drugAvailability), bud = d.budgetUtilized * 100, hr = d.hrFilled * 100;
+                const scrC = scr > 65 ? P.green : scr > 45 ? P.amber : P.red;
+                const drugC = drug > 60 ? P.green : drug > 40 ? P.amber : P.red;
+                const budC = bud > 65 ? P.green : bud > 45 ? P.amber : P.red;
+                const hrC = hr > 65 ? P.green : hr > 50 ? P.amber : P.red;
+                const barRow = (label, val, color) => <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 4 }}><span>{label}</span><span style={{ fontWeight: 700, color }}>{val.toFixed(1)}%</span></div>
+                  <div style={{ height: 6, background: P.border, borderRadius: 3 }}><div style={{ height: 6, borderRadius: 3, background: color, width: `${Math.min(val, 100)}%` }} /></div>
+                </div>;
+                return <div key={d.name} style={{ background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: 16, borderTop: `3px solid ${COMPARE_COLORS[i]}` }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 4 }}>{d.name}</div>
+                  <div style={{ fontSize: 11, color: P.textDim, marginBottom: 14 }}>{d.zone} · Pop {(d.population / 1e5).toFixed(1)}L · {d.totalCases.toLocaleString()} cases</div>
+                  {barRow("Screening", scr, scrC)}
+                  {barRow("Drug availability", drug, drugC)}
+                  {barRow("Budget utilization", bud, budC)}
+                  {barRow("HR fill rate", hr, hrC)}
+                </div>;
+              })}
+            </div>
+            {/* Disease comparison table */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 10 }}>Disease breakdown</div>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table style={{ width: "100%", minWidth: 400, borderCollapse: "collapse", fontSize: 12 }}>
+                <thead><tr>
+                  <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, textTransform: "uppercase", color: P.textDim, borderBottom: `1px solid ${P.border}` }}>Disease</th>
+                  {compareData.map((d, i) => <th key={d.name} style={{ padding: "8px 12px", textAlign: "right", fontSize: 10, textTransform: "uppercase", color: COMPARE_COLORS[i], borderBottom: `1px solid ${P.border}`, fontWeight: 700 }}>{d.name}</th>)}
+                  {compareData.length === 2 && <th style={{ padding: "8px 12px", textAlign: "right", fontSize: 10, textTransform: "uppercase", color: P.textDim, borderBottom: `1px solid ${P.border}` }}>Diff</th>}
+                </tr></thead>
+                <tbody>{DISEASES.map(dis => {
+                  const vals = compareData.map(d => d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0);
+                  const diff = compareData.length === 2 ? vals[0] - vals[1] : null;
+                  const maxVal = Math.max(...vals);
+                  return <tr key={dis}>
+                    <td style={{ padding: "8px 12px", fontWeight: 600, color: P.textMuted, borderBottom: `1px solid ${P.border}` }}>{dis}</td>
+                    {vals.map((v, i) => <td key={i} style={{ padding: "8px 12px", textAlign: "right", fontWeight: v === maxVal ? 700 : 400, color: v === maxVal ? P.text : P.textMuted, borderBottom: `1px solid ${P.border}` }}>{v.toLocaleString()}</td>)}
+                    {diff !== null && <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600, color: diff > 0 ? P.red : diff < 0 ? P.green : P.textDim, borderBottom: `1px solid ${P.border}` }}>{diff > 0 ? "+" : ""}{diff.toLocaleString()}</td>}
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+            {/* Screening comparison detail */}
+            <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginTop: 20, marginBottom: 10 }}>Screening detail</div>
+            <div className="ncd-cmp-scr" style={{ display: "grid", gridTemplateColumns: `repeat(${compareData.length}, 1fr)`, gap: 12 }}>
+              {compareData.map((d, i) => <div key={d.name} style={{ background: P.bg, border: `1px solid ${P.border}`, borderRadius: 8, padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: COMPARE_COLORS[i], marginBottom: 8 }}>{d.name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 4 }}><span>Target</span><span style={{ color: P.text, fontWeight: 600 }}>{(d.screeningTarget / 1000).toFixed(0)}k</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 4 }}><span>Achieved</span><span style={{ color: P.text, fontWeight: 600 }}>{(d.screeningAchieved / 1000).toFixed(0)}k</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim }}><span>Gap</span><span style={{ color: P.red, fontWeight: 600 }}>{((d.screeningTarget - d.screeningAchieved) / 1000).toFixed(0)}k</span></div>
+              </div>)}
+            </div>
+          </> : <div style={{ textAlign: "center", color: P.textDim, padding: 40 }}>Select at least 2 districts to compare</div>}
+        </div>
+      </div>
+    </div>}
     <div className="ncd-tab-bar" style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "visible", alignItems: "center" }}>
       {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
-      <div style={{ marginLeft: "auto", padding: "0 4px", position: "relative", zIndex: 200 }}>
+      <div style={{ marginLeft: "auto", padding: "0 4px", display: "flex", gap: 6, position: "relative", zIndex: 200 }}>
+        <button onClick={() => { setShowCompare(true); if (compareDistricts.length === 0 && fdd.length >= 2) setCompareDistricts([fdd[0].name, fdd[1].name]); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
+          <I.Activity /> Compare
+        </button>
         <button onClick={() => setShowExportMenu(!showExportMenu)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
           <I.Download /> Export ▾
         </button>
@@ -1813,6 +1903,13 @@ export default function App() {
   .ncd-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
   .ncd-chat-top{padding:8px 12px!important}
   .ncd-chat-top span{font-size:11px!important}
+  .ncd-cmp-modal{padding:20px 10px!important}
+  .ncd-cmp-box{max-height:90vh!important}
+  .ncd-cmp-head{padding:12px 16px!important}
+  .ncd-cmp-picker{padding:10px 16px!important}
+  .ncd-cmp-body{padding:16px!important}
+  .ncd-cmp-cards{grid-template-columns:1fr!important}
+  .ncd-cmp-scr{grid-template-columns:1fr!important}
   .ncd-header{padding:10px 12px!important}
   .ncd-header-logo{gap:8px!important}
   .ncd-role-select{font-size:11px!important;padding:4px 8px!important}
