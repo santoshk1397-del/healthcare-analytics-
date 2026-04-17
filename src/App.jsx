@@ -1025,6 +1025,8 @@ function Chat({ dd, st, rawRows }) {
   const [activeThread, setActiveThread] = useState(null);
   const [showSidebar, setShowSidebar] = useState(false);
   const [loadingThreads, setLoadingThreads] = useState(true);
+  const [tokenLog, setTokenLog] = useState([]);
+  const [showTokenLog, setShowTokenLog] = useState(false);
   const endRef = useRef(null); const inpRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
@@ -1150,6 +1152,16 @@ function Chat({ dd, st, rawRows }) {
       const data = await res.json();
       const text = data.content?.filter(b => b.type === "text").map(b => b.text).filter(Boolean).join("\n") || "Could not process. Try again.";
       setMsgs(p => [...p, { role: "assistant", content: text }]);
+      if (data.usage) {
+        setTokenLog(prev => [...prev, {
+          time: new Date().toISOString(),
+          query: msg.length > 60 ? msg.slice(0, 60) + "..." : msg,
+          input: data.usage.prompt_tokens || 0,
+          output: data.usage.completion_tokens || 0,
+          total: data.usage.total_tokens || 0,
+          model: data.usage.model || "llama-3.3-70b",
+        }]);
+      }
       if (threadId) await saveMsg(threadId, "assistant", text);
     } catch (e) {
       console.error(e);
@@ -1204,7 +1216,35 @@ function Chat({ dd, st, rawRows }) {
           <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
           <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
         </div>
+        {tokenLog.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+          <button onClick={() => setShowTokenLog(!showTokenLog)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: P.textDim, fontFamily: "'DM Sans'", display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: P.green, display: "inline-block" }} />
+            {tokenLog.reduce((s, l) => s + l.total, 0).toLocaleString()} tokens used · {tokenLog.length} request{tokenLog.length !== 1 ? "s" : ""} · <span style={{ textDecoration: "underline" }}>{showTokenLog ? "Hide" : "View"} log</span>
+          </button>
+        </div>}
       </div>
+      {/* Token Usage Log Panel */}
+      {showTokenLog && <div style={{ borderTop: `1px solid ${P.border}`, background: P.surface, maxHeight: 240, overflow: "auto" }}>
+        <div style={{ padding: "10px 20px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: P.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>LLM Token Usage Log</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 10, color: P.textDim }}>Total: <b style={{ color: P.accent }}>{tokenLog.reduce((s, l) => s + l.total, 0).toLocaleString()}</b> tokens</span>
+            <button onClick={() => { setTokenLog([]); setShowTokenLog(false); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 4, padding: "2px 8px", fontSize: 9, color: P.textDim, cursor: "pointer", fontFamily: "'DM Sans'" }}>Clear</button>
+          </div>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+          <thead><tr>
+            {["Time", "Query", "Input", "Output", "Total"].map(h => <th key={h} style={{ padding: "4px 12px", textAlign: h === "Query" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 9, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}
+          </tr></thead>
+          <tbody>{[...tokenLog].reverse().map((l, i) => <tr key={i} style={{ borderBottom: `1px solid ${P.border}` }}>
+            <td style={{ padding: "6px 12px", color: P.textDim, whiteSpace: "nowrap", textAlign: "right" }}>{new Date(l.time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</td>
+            <td style={{ padding: "6px 12px", color: P.text, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.query}</td>
+            <td style={{ padding: "6px 12px", textAlign: "right", color: P.textMuted, fontWeight: 600 }}>{l.input.toLocaleString()}</td>
+            <td style={{ padding: "6px 12px", textAlign: "right", color: P.textMuted, fontWeight: 600 }}>{l.output.toLocaleString()}</td>
+            <td style={{ padding: "6px 12px", textAlign: "right", color: P.accent, fontWeight: 700 }}>{l.total.toLocaleString()}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
     </div>
   </div>;
 }
