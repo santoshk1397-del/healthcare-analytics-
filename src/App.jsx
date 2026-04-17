@@ -532,9 +532,9 @@ function Reports({ rawRows, role }) {
   const openPrint = (html) => { const w = window.open("", "_blank"); w.document.write(html); w.document.close(); };
 
   // SVG bar chart generator for print
-  const svgBar = (items, { w = 700, h = 200, color = "#C2410C", labelKey = "l", valueKey = "v" } = {}) => {
+  const svgBar = (items, { w = 600, h = 180, color = "#C2410C", labelKey = "l", valueKey = "v" } = {}) => {
     const max = Math.max(...items.map(d => d[valueKey]), 1);
-    const barW = Math.min(36, (w - 60) / items.length - 4);
+    const barW = Math.min(32, (w - 60) / items.length - 4);
     const gap = 4;
     const totalW = items.length * (barW + gap);
     const startX = (w - totalW) / 2;
@@ -547,28 +547,28 @@ function Reports({ rawRows, role }) {
       bars += `<text x="${x + barW/2}" y="${y - 4}" text-anchor="middle" font-size="8" fill="#64748b" font-weight="600">${d[valueKey] >= 1000 ? (d[valueKey]/1000).toFixed(0)+"k" : d[valueKey]}</text>`;
       bars += `<text x="${x + barW/2}" y="${h - 6}" text-anchor="middle" font-size="7" fill="#94a3b8">${d[labelKey]}</text>`;
     });
-    return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg"><rect width="${w}" height="${h}" fill="#f8fafc" rx="8"/>${bars}</svg>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg"><rect width="${w}" height="${h}" fill="#f8fafc" rx="8"/>${bars}</svg>`;
   };
 
   // SVG horizontal bar chart
-  const svgHBar = (items, { w = 700, rowH = 28, color = "#C2410C" } = {}) => {
+  const svgHBar = (items, { w = 500, rowH = 28, color = "#C2410C" } = {}) => {
     const max = Math.max(...items.map(d => d.v), 1);
     const h = items.length * rowH + 10;
-    const labelW = 120, barStart = 130, barMaxW = w - barStart - 80;
+    const labelW = 100, barStart = 110, barMaxW = w - barStart - 70;
     let rows = "";
     items.forEach((d, i) => {
       const y = i * rowH + 14;
       const bw = Math.max((d.v / max) * barMaxW, 2);
       const c = d.color || color;
-      rows += `<text x="${labelW}" y="${y + 4}" text-anchor="end" font-size="11" fill="#1f2937" font-weight="600">${d.l}</text>`;
+      rows += `<text x="${labelW}" y="${y + 4}" text-anchor="end" font-size="10" fill="#1f2937" font-weight="600">${d.l}</text>`;
       rows += `<rect x="${barStart}" y="${y - 8}" width="${bw}" height="18" fill="${c}" rx="4" opacity="0.85"/>`;
-      rows += `<text x="${barStart + bw + 6}" y="${y + 4}" font-size="11" fill="#1f2937" font-weight="700">${typeof d.v === "number" ? (d.v % 1 === 0 ? d.v.toLocaleString() : d.v.toFixed(1)) : d.v}${d.suffix || ""}</text>`;
+      rows += `<text x="${barStart + bw + 6}" y="${y + 4}" font-size="10" fill="#1f2937" font-weight="700">${typeof d.v === "number" ? (d.v % 1 === 0 ? d.v.toLocaleString() : d.v.toFixed(1)) : d.v}${d.suffix || ""}</text>`;
     });
-    return `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${rows}</svg>`;
+    return `<svg viewBox="0 0 ${w} ${h}" width="100%" xmlns="http://www.w3.org/2000/svg">${rows}</svg>`;
   };
 
   // SVG donut
-  const svgDonut = (items, { size = 220 } = {}) => {
+  const svgDonut = (items, { size = 200 } = {}) => {
     const total = items.reduce((s, d) => s + d.v, 0);
     if (!total) return "";
     const r = size/2 - 20, cx = size/2, cy = size/2;
@@ -580,9 +580,11 @@ function Reports({ rawRows, role }) {
       const large = (cum - start) > 0.5 ? 1 : 0;
       const c = colors[i % colors.length];
       paths += `<path d="M${cx},${cy} L${cx+r*Math.cos(sa)},${cy+r*Math.sin(sa)} A${r},${r} 0 ${large} 1 ${cx+r*Math.cos(ea)},${cy+r*Math.sin(ea)} Z" fill="${c}" opacity="0.85" stroke="white" stroke-width="2"/>`;
-      legend += `<text x="${size + 16}" y="${30 + i * 22}" font-size="11" fill="#1f2937"><tspan fill="${c}" font-size="14">■</tspan> ${d.l}: ${d.v.toLocaleString()} (${(d.v/total*100).toFixed(0)}%)</text>`;
+      legend += `<text x="${size + 12}" y="${28 + i * 20}" font-size="10" fill="#1f2937"><tspan fill="${c}" font-size="12">■</tspan> ${d.l}: ${d.v.toLocaleString()} (${(d.v/total*100).toFixed(0)}%)</text>`;
     });
-    return `<svg width="${size + 200}" height="${Math.max(size, items.length * 22 + 20)}" xmlns="http://www.w3.org/2000/svg">${paths}<circle cx="${cx}" cy="${cy}" r="${r*0.55}" fill="white"/><text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2937">${(total/1000).toFixed(0)}k</text>${legend}</svg>`;
+    const totalW = size + 180;
+    const totalH = Math.max(size, items.length * 20 + 20);
+    return `<svg viewBox="0 0 ${totalW} ${totalH}" width="100%" xmlns="http://www.w3.org/2000/svg">${paths}<circle cx="${cx}" cy="${cy}" r="${r*0.55}" fill="white"/><text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="16" font-weight="700" fill="#1f2937">${(total/1000).toFixed(0)}k</text>${legend}</svg>`;
   };
 
   // ── Export Summary (existing table-based report) ──
@@ -646,7 +648,7 @@ function Reports({ rawRows, role }) {
     // Disease per district chart (top 3 districts by cases)
     const top3 = [...fdd].sort((a, b) => b.totalCases - a.totalCases).slice(0, 3);
     const distCharts = top3.map(d => {
-      const bars = svgHBar(d.diseaseBreakdown.map(db => ({ l: db.disease, v: db.cases, color: DC[db.disease] || "#C2410C" })), { w: 320 });
+      const bars = svgHBar(d.diseaseBreakdown.map(db => ({ l: db.disease, v: db.cases, color: DC[db.disease] || "#C2410C" })), { w: 350 });
       return `<div class="dist-card"><div class="dist-name">${d.name} <span style="font-size:12px;color:#64748b">${d.totalCases.toLocaleString()} cases</span></div>${bars}</div>`;
     }).join("");
 
@@ -657,24 +659,24 @@ function Reports({ rawRows, role }) {
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
       body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1f2937}
-      .slide{width:960px;min-height:540px;margin:20px auto;background:white;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);padding:0;overflow:hidden;page-break-after:always;position:relative;display:flex;flex-direction:column}
-      .slide-header{padding:32px 48px 0;border-bottom:none}
-      .slide-num{font-size:28px;font-weight:800;color:#1f2937;line-height:1.2}
-      .slide-body{flex:1;padding:24px 48px 16px}
-      .slide-footer{padding:12px 48px;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9}
-      .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin:20px 0}
-      .kpi-card{background:#f8fafc;border-radius:10px;padding:20px;text-align:center;border:1px solid #e2e8f0}
-      .kpi-val{font-size:32px;font-weight:800;color:#C2410C}
-      .kpi-label{font-size:11px;color:#64748b;text-transform:uppercase;margin-top:6px;letter-spacing:0.05em}
-      .chart-title{font-size:16px;font-weight:700;color:#334155;margin:16px 0 12px}
-      .two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+      .slide{width:100%;max-width:900px;min-height:540px;margin:20px auto;background:white;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);padding:0;overflow:visible;page-break-after:always;position:relative;display:flex;flex-direction:column}
+      .slide-header{padding:28px 40px 0;border-bottom:none}
+      .slide-num{font-size:24px;font-weight:800;color:#1f2937;line-height:1.2}
+      .slide-body{flex:1;padding:20px 40px 16px;overflow:visible}
+      .slide-footer{padding:12px 40px;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9}
+      .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0}
+      .kpi-card{background:#f8fafc;border-radius:10px;padding:16px;text-align:center;border:1px solid #e2e8f0}
+      .kpi-val{font-size:26px;font-weight:800;color:#C2410C}
+      .kpi-label{font-size:10px;color:#64748b;text-transform:uppercase;margin-top:4px;letter-spacing:0.05em}
+      .chart-title{font-size:14px;font-weight:700;color:#334155;margin:14px 0 10px}
+      .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
       .action-item{padding:10px 16px;border-left:3px solid #991B1B;background:#fef2f2;border-radius:0 8px 8px 0;margin-bottom:8px}
       .action-district{font-weight:700;font-size:14px;display:block}
       .action-detail{font-size:12px;color:#64748b;margin-top:2px;display:block}
       .dist-card{background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:12px;border:1px solid #e2e8f0}
       .dist-name{font-size:15px;font-weight:700;margin-bottom:8px}
       .insight{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px 18px;font-size:13px;color:#92400e;margin-top:12px}
-      @media print{body{background:white}.slide{box-shadow:none;margin:0;border-radius:0;page-break-after:always}}
+      @media print{body{background:white;padding:0}.slide{box-shadow:none;margin:0;border-radius:0;page-break-after:always;page-break-inside:avoid;max-width:100%}svg{max-width:100%!important}}
     </style></head><body>
 
     ${slide("NCD Surveillance Overview", `
