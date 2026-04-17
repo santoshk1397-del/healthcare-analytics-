@@ -792,7 +792,7 @@ function Reports({ rawRows, role }) {
         </div>
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>District Performance</div>
-          <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}><table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr>{["District","Cases","Screening","Drugs","Budget"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: h === "District" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
             <tbody>{fdd.map(d => <tr key={d.id} onClick={() => setSel(d.id)} style={{ cursor: "pointer", background: sel === d.id ? P.accentGlow : "transparent" }} onMouseEnter={e => { if (sel !== d.id) e.currentTarget.style.background = P.surfaceAlt; }} onMouseLeave={e => { if (sel !== d.id) e.currentTarget.style.background = "transparent"; }}>
               <td style={{ padding: "11px 14px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
@@ -1003,7 +1003,7 @@ function Chat({ dd, st, rawRows }) {
   const sugg = ["What are the biggest gaps in Raipur?", "Why are diabetes cases increasing in Bastar?", "Compare screening across all zones", "Recommend interventions for low-performing districts"];
   const timeAgo = (d) => { const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000); if (m < 1) return "Just now"; if (m < 60) return `${m}m ago`; const h = Math.floor(m / 60); return h < 24 ? `${h}h ago` : "1d ago"; };
 
-  return <div style={{ display: "flex", height: "100%" }}>
+  return <div style={{ display: "flex", height: "100%", overflow: "hidden", width: "100%" }}>
     <div className="ncd-sidebar" style={{ width: showSidebar ? 280 : 0, minWidth: showSidebar ? 280 : 0, borderRight: showSidebar ? `1px solid ${P.border}` : "none", background: P.surface, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s" }}>
       <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${P.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chat History</span>
@@ -1022,8 +1022,8 @@ function Chat({ dd, st, rawRows }) {
       <div style={{ padding: "8px 12px", borderTop: `1px solid ${P.border}`, fontSize: 10, color: P.textDim, textAlign: "center" }}>Threads auto-delete after 24h</div>
     </div>
 
-    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+      <div className="ncd-chat-top" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
         <button onClick={() => setShowSidebar(!showSidebar)} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 8px", cursor: "pointer", color: P.textMuted, display: "flex", alignItems: "center" }}><I.List /></button>
         <span style={{ fontSize: 13, fontWeight: 600, color: P.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeThread ? (threads.find(t => t.id === activeThread)?.title || "Conversation") : "New Conversation"}</span>
         {activeThread && <button onClick={newThread} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${P.border}`, background: "none", color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>+ New Chat</button>}
@@ -1577,7 +1577,7 @@ export default function App() {
   const roleColors = { admin: P.accent, district_manager: P.purple, field_worker: P.green, analyst: P.blue };
 
   return <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: P.bg, color: P.text, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
-    <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}textarea{font-family:'DM Sans',sans-serif}select{font-family:'DM Sans',sans-serif}
+    <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}html,body{max-width:100vw;overflow-x:hidden}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}textarea{font-family:'DM Sans',sans-serif}select{font-family:'DM Sans',sans-serif}
 @media(max-width:768px){
   .ncd-header-title{display:none!important}
   .ncd-header-date{display:none!important}
@@ -1605,16 +1605,23 @@ export default function App() {
   .ncd-ingest-parsed{grid-template-columns:1fr!important}
   .ncd-heatmap-scroll{overflow-x:auto!important}
   .ncd-sidebar{width:240px!important;min-width:240px!important}
+  .ncd-main-content{overflow:auto!important}
+  .ncd-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+  .ncd-chat-top{padding:8px 12px!important}
+  .ncd-chat-top span{font-size:11px!important}
+  .ncd-header{padding:10px 12px!important}
+  .ncd-header-logo{gap:8px!important}
+  .ncd-role-select{font-size:11px!important;padding:4px 8px!important}
 }`}</style>
 
-    <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+    <header className="ncd-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+      <div className="ncd-header-logo" style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, #1a1a1a)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff", flexShrink: 0 }}>N</div>
         <div className="ncd-header-title"><div style={{ fontSize: 16, fontWeight: 800 }}>NCD Analytics</div><div style={{ fontSize: 10, color: P.textDim, textTransform: "uppercase", letterSpacing: "0.04em" }}>State Health Dept — AI Surveillance</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span className="ncd-header-date" style={{ fontSize: 11, color: P.textDim }}>{time}</span>
-        <select value={roleKey} onChange={e => setRoleKey(e.target.value)} style={{ background: P.surfaceAlt, border: `1px solid ${roleColors[roleKey]}50`, borderRadius: 8, padding: "6px 12px", color: roleColors[roleKey], fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer" }}>
+        <select value={roleKey} onChange={e => setRoleKey(e.target.value)} className="ncd-role-select" style={{ background: P.surfaceAlt, border: `1px solid ${roleColors[roleKey]}50`, borderRadius: 8, padding: "6px 12px", color: roleColors[roleKey], fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer" }}>
           {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
@@ -1630,7 +1637,7 @@ export default function App() {
       {!role.allDistricts && role.district && <span style={{ fontSize: 11, color: P.textDim }}>· Data restricted to {role.district}</span>}
     </div>
 
-    <div style={{ flex: 1, overflow: "hidden" }}>
+    <div className="ncd-main-content" style={{ flex: 1, overflow: "hidden" }}>
       {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
       {!loading && section === "reports" && <Reports rawRows={visibleRows} role={role} />}
       {!loading && section === "chat" && <Chat dd={dd} st={st} rawRows={visibleRows} />}
