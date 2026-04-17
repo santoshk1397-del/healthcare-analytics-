@@ -1005,7 +1005,7 @@ function Chat({ dd, st, rawRows }) {
 
   return <div style={{ display: "flex", height: "100%", overflow: "hidden", width: "100%", position: "relative" }}>
     {showSidebar && <div className="ncd-sidebar-overlay" onClick={() => setShowSidebar(false)} style={{ display: "none", position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 400 }} />}
-    <div className="ncd-sidebar" style={{ width: showSidebar ? 280 : 0, minWidth: showSidebar ? 280 : 0, borderRight: showSidebar ? `1px solid ${P.border}` : "none", background: P.surface, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s" }}>
+    <div className={`ncd-sidebar${showSidebar ? " ncd-sidebar-open" : ""}`} style={{ width: showSidebar ? 280 : 0, minWidth: showSidebar ? 280 : 0, borderRight: showSidebar ? `1px solid ${P.border}` : "none", background: P.surface, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s" }}>
       <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${P.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chat History</span>
         <button onClick={newThread} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: P.accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>+ New</button>
@@ -1605,7 +1605,8 @@ export default function App() {
   .ncd-ingest-schema{grid-template-columns:1fr!important}
   .ncd-ingest-parsed{grid-template-columns:1fr!important}
   .ncd-heatmap-scroll{overflow-x:auto!important}
-  .ncd-sidebar{width:240px!important;min-width:240px!important;position:absolute!important;left:0;top:0;bottom:0;z-index:500;box-shadow:4px 0 24px rgba(0,0,0,0.15)}
+  .ncd-sidebar{transition:transform 0.2s ease!important;position:absolute!important;left:0;top:0;bottom:0;z-index:500;box-shadow:4px 0 24px rgba(0,0,0,0.15);width:260px!important;min-width:260px!important;transform:translateX(-100%)}
+  .ncd-sidebar-open{transform:translateX(0)!important}
   .ncd-sidebar-overlay{display:block!important}
   .ncd-main-content{overflow:auto!important}
   .ncd-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
