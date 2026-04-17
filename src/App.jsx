@@ -752,13 +752,13 @@ function Reports({ rawRows, role }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-    <div style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "auto", alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "visible", alignItems: "center" }}>
       {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
-      <div style={{ marginLeft: "auto", padding: "0 4px", position: "relative" }}>
+      <div style={{ marginLeft: "auto", padding: "0 4px", position: "relative", zIndex: 200 }}>
         <button onClick={() => setShowExportMenu(!showExportMenu)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
           <I.Download /> Export ▾
         </button>
-        {showExportMenu && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 100, minWidth: 180, overflow: "hidden" }}>
+        {showExportMenu && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 9999, minWidth: 180, overflow: "hidden" }}>
           <button onClick={() => { exportSummary(); setShowExportMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
             <I.Report /> Summary Report
             <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>Tables</span>
