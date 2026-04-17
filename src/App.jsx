@@ -388,7 +388,7 @@ const selStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, bo
 
 function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, customFrom, setCustomFrom, customTo, setCustomTo }) {
   const dateInp = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", minWidth: 130 };
-  return <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
+  return <div className="ncd-filter-bar" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>District</span>
       <select value={district} onChange={e => setDistrict(e.target.value)} style={selStyle}>
@@ -398,9 +398,9 @@ function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, 
     </div>
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase", marginRight: 2 }}>Period</span>
-      <div style={{ display: "flex", gap: 2, background: P.surfaceAlt, borderRadius: 8, padding: 2, border: `1px solid ${P.border}` }}>
+      <div className="ncd-filter-pills" style={{ display: "flex", gap: 2, background: P.surfaceAlt, borderRadius: 8, padding: 2, border: `1px solid ${P.border}` }}>
         {TIME_RANGES.map(tr => (
-          <button key={tr.id} onClick={() => setTimeRange(tr.id)} style={{
+          <button key={tr.id} className="ncd-filter-pill" onClick={() => setTimeRange(tr.id)} style={{
             padding: "5px 10px", borderRadius: 6, border: "none", fontSize: 11, fontWeight: 600,
             cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap",
             background: timeRange === tr.id ? P.accent : "transparent",
@@ -754,7 +754,7 @@ function Reports({ rawRows, role }) {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-    <div style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "visible", alignItems: "center" }}>
+    <div className="ncd-tab-bar" style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "visible", alignItems: "center" }}>
       {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
       <div style={{ marginLeft: "auto", padding: "0 4px", position: "relative", zIndex: 200 }}>
         <button onClick={() => setShowExportMenu(!showExportMenu)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
@@ -773,26 +773,26 @@ function Reports({ rawRows, role }) {
         </div>}
       </div>
     </div>
-    <div style={{ flex: 1, overflow: "auto", padding: 28 }}>
+    <div className="ncd-reports-pad" style={{ flex: 1, overflow: "auto", padding: 28 }}>
 
       {/* Dashboard */}
       {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>State Dashboard</div>
         {fb}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
+        <div className="ncd-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
           <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
           <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} color={P.green} />
           <KPI icon={I.Wallet} label="Budget Util." value={`${fst.avgBudgetUtil}%`} sub={`₹${(fst.totalBudget / 1e7).toFixed(0)} Cr`} color={P.purple} />
           <KPI icon={I.Pill} label="Drug Avail." value={`${fst.avgDrugAvail}%`} color={P.amber} />
           <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} color={P.blue} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Disease Distribution</div><Donut data={totDis} /></div>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22, overflow: "hidden" }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Monthly Registrations</div><BarChart data={ts.map(t => ({ m: t.label, c: t.cases }))} lk="m" vk="c" h={180} /></div>
         </div>
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>District Performance</div>
-          <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}><table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr>{["District","Cases","Screening","Drugs","Budget"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: h === "District" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
             <tbody>{fdd.map(d => <tr key={d.id} onClick={() => setSel(d.id)} style={{ cursor: "pointer", background: sel === d.id ? P.accentGlow : "transparent" }} onMouseEnter={e => { if (sel !== d.id) e.currentTarget.style.background = P.surfaceAlt; }} onMouseLeave={e => { if (sel !== d.id) e.currentTarget.style.background = "transparent"; }}>
               <td style={{ padding: "11px 14px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
@@ -805,7 +805,7 @@ function Reports({ rawRows, role }) {
         </div>
         {s && <div style={{ background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 12, padding: 22 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
             <BarChart data={s.monthlyTrend} lk="month" vk="cases" color={P.accent} h={160} />
           </div>
@@ -815,7 +815,7 @@ function Reports({ rawRows, role }) {
       {/* Heatmap */}
       {tab === "heatmap" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {fb}
-        <Heatmap dd={fdd} />
+        <div className="ncd-heatmap-scroll"><Heatmap dd={fdd} /></div>
       </div>}
 
       {/* Screening */}
@@ -827,14 +827,14 @@ function Reports({ rawRows, role }) {
           <BarChart data={ts.map(t => ({ m: t.label, c: Math.round(t.scrPct * 10) / 10 }))} lk="m" vk="c" color={P.green} h={180} />
           <div style={{ fontSize: 10, color: P.textDim, marginTop: 8, textAlign: "center" }}>Monthly screening achievement rate (%)</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>{[...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => { const r = parseFloat(d.screeningRate); const c = r > 65 ? P.green : r > 45 ? P.amber : P.red; return <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{d.name}</span><span style={{ fontSize: 22, fontWeight: 800, color: c }}>{d.screeningRate}%</span></div><Bar value={r} color={c} h={8} /><div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: P.textDim }}><span>Target: {(d.screeningTarget / 1000).toFixed(0)}k</span><span>Done: {(d.screeningAchieved / 1000).toFixed(0)}k</span></div></div>; })}</div>
+        <div className="ncd-screening-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>{[...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => { const r = parseFloat(d.screeningRate); const c = r > 65 ? P.green : r > 45 ? P.amber : P.red; return <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{d.name}</span><span style={{ fontSize: 22, fontWeight: 800, color: c }}>{d.screeningRate}%</span></div><Bar value={r} color={c} h={8} /><div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: P.textDim }}><span>Target: {(d.screeningTarget / 1000).toFixed(0)}k</span><span>Done: {(d.screeningAchieved / 1000).toFixed(0)}k</span></div></div>; })}</div>
       </div>}
 
       {/* Disease Trends — with district filter */}
       {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div>
         {fb}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{DISEASES.map(dis => { const disTs = ts.map(t => ({ m: t.label, c: t.diseases[dis] || 0 })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20, overflow: "hidden" }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={disTs} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
+        <div className="ncd-disease-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{DISEASES.map(dis => { const disTs = ts.map(t => ({ m: t.label, c: t.diseases[dis] || 0 })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20, overflow: "hidden" }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={disTs} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
       </div>}
 
       {/* Budget */}
@@ -846,7 +846,7 @@ function Reports({ rawRows, role }) {
           <BarChart data={ts.map(t => ({ m: t.label, c: Math.round(t.budPct * 10) / 10 }))} lk="m" vk="c" color="#3B82F6" h={180} />
           <div style={{ fontSize: 10, color: P.textDim, marginTop: 8, textAlign: "center" }}>Monthly budget utilization rate (%)</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: "#3B82F6" }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: "#F59E0B" }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
+        <div className="ncd-budget-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: "#3B82F6" }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: "#F59E0B" }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
 
       {/* Alerts */}
@@ -1003,8 +1003,9 @@ function Chat({ dd, st, rawRows }) {
   const sugg = ["What are the biggest gaps in Raipur?", "Why are diabetes cases increasing in Bastar?", "Compare screening across all zones", "Recommend interventions for low-performing districts"];
   const timeAgo = (d) => { const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000); if (m < 1) return "Just now"; if (m < 60) return `${m}m ago`; const h = Math.floor(m / 60); return h < 24 ? `${h}h ago` : "1d ago"; };
 
-  return <div style={{ display: "flex", height: "100%" }}>
-    <div style={{ width: showSidebar ? 280 : 0, minWidth: showSidebar ? 280 : 0, borderRight: showSidebar ? `1px solid ${P.border}` : "none", background: P.surface, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s" }}>
+  return <div style={{ display: "flex", height: "100%", overflow: "hidden", width: "100%", position: "relative" }}>
+    {showSidebar && <div className="ncd-sidebar-overlay" onClick={() => setShowSidebar(false)} style={{ display: "none", position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 400 }} />}
+    <div className={`ncd-sidebar${showSidebar ? " ncd-sidebar-open" : ""}`} style={{ width: showSidebar ? 280 : 0, minWidth: showSidebar ? 280 : 0, borderRight: showSidebar ? `1px solid ${P.border}` : "none", background: P.surface, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s" }}>
       <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${P.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chat History</span>
         <button onClick={newThread} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: P.accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>+ New</button>
@@ -1022,22 +1023,22 @@ function Chat({ dd, st, rawRows }) {
       <div style={{ padding: "8px 12px", borderTop: `1px solid ${P.border}`, fontSize: 10, color: P.textDim, textAlign: "center" }}>Threads auto-delete after 24h</div>
     </div>
 
-    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+      <div className="ncd-chat-top" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
         <button onClick={() => setShowSidebar(!showSidebar)} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 8px", cursor: "pointer", color: P.textMuted, display: "flex", alignItems: "center" }}><I.List /></button>
         <span style={{ fontSize: 13, fontWeight: 600, color: P.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeThread ? (threads.find(t => t.id === activeThread)?.title || "Conversation") : "New Conversation"}</span>
         {activeThread && <button onClick={newThread} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${P.border}`, background: "none", color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>+ New Chat</button>}
       </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="ncd-chat-msgs" style={{ flex: 1, overflow: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
         {msgs.map((m, i) => <div key={i} style={{ display: "flex", gap: 12, flexDirection: m.role === "user" ? "row-reverse" : "row" }}>
           {m.role === "assistant" && <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div>}
-          <div style={{ maxWidth: "75%", padding: "14px 18px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? P.accent : P.surface, border: m.role === "user" ? "none" : `1px solid ${P.border}`, color: m.role === "user" ? "#fff" : P.text, fontSize: 13.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{m.content}</div>
+          <div className="ncd-chat-bubble" style={{ maxWidth: "75%", padding: "14px 18px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? P.accent : P.surface, border: m.role === "user" ? "none" : `1px solid ${P.border}`, color: m.role === "user" ? "#fff" : P.text, fontSize: 13.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{m.content}</div>
         </div>)}
         {loading && <div style={{ display: "flex", gap: 12 }}><div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div><div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: "16px 16px 16px 4px", padding: "14px 20px", display: "flex", gap: 6 }}>{[0,1,2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: P.accent, animation: `pulse 1.2s ease ${j*0.2}s infinite` }} />)}</div></div>}
         <div ref={endRef} />
       </div>
-      {msgs.length <= 1 && <div style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
-      <div style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
+      {msgs.length <= 1 && <div className="ncd-chat-sugg" style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
+      <div className="ncd-chat-input" style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
         <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px" }}>
           <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
           <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
@@ -1115,12 +1116,12 @@ const confirm = async () => {
 
   const dlTemplate = () => { const b = new Blob([generateSampleCSV()], { type: "text/csv" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "ncd_template.csv"; a.click(); };
 
-  return <div style={{ height: "100%", overflow: "auto", padding: 28 }}><div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
+  return <div className="ncd-ingest-pad" style={{ height: "100%", overflow: "auto", padding: 28 }}><div className="ncd-ingest-inner" style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
     <div><div style={{ fontSize: 20, fontWeight: 800, color: P.text }}>Data Ingestion Portal</div><div style={{ fontSize: 13, color: P.textDim, marginTop: 4 }}>Upload district-level NCD data via CSV. Data flows into reports and AI chat.</div></div>
 
     <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: P.textDim, textTransform: "uppercase", marginBottom: 14 }}>Current Dataset</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="ncd-ingest-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.accent }}>{dd.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Districts</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{dd.reduce((s, d) => s + d.totalCases, 0).toLocaleString()}</div><div style={{ fontSize: 11, color: P.textDim }}>Total Cases</div></div>
         <div><div style={{ fontSize: 24, fontWeight: 800, color: P.text }}>{DISEASES.length}</div><div style={{ fontSize: 11, color: P.textDim }}>Diseases</div></div>
@@ -1134,7 +1135,7 @@ const confirm = async () => {
 
     <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 18 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: P.textDim, textTransform: "uppercase", marginBottom: 10 }}>CSV Schema (one row = district + month + disease)</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+      <div className="ncd-ingest-schema" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
         {[{ c: "district_name", d: "e.g. Raipur", r: true }, { c: "month", d: "Apr, May...Mar", r: true },{ c: "year", d: "2026", r: true }, { c: "disease_type", d: "Diabetes, Hypertension...", r: true }, { c: "cases", d: "Count", r: true }, { c: "screening_target", d: "Target count" }, { c: "screening_achieved", d: "Achieved count" }, { c: "budget_allocated_lakhs", d: "₹ in lakhs" }, { c: "budget_utilized_lakhs", d: "₹ spent" }, { c: "hr_sanctioned", d: "Positions" }, { c: "hr_in_position", d: "Filled" }, { c: "drug_availability_pct", d: "0-100" }].map(x => <div key={x.c} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 10px", borderRadius: 5, background: P.surfaceAlt, fontSize: 11 }}><code style={{ color: P.accent, fontWeight: 600, minWidth: 170 }}>{x.c}</code><span style={{ color: P.textMuted }}>{x.d}</span>{x.r && <span style={{ color: P.red, fontSize: 9, fontWeight: 800 }}>REQ</span>}</div>)}
       </div>
     </div>
@@ -1149,7 +1150,7 @@ const confirm = async () => {
     {result && <div style={{ background: P.surface, border: `1px solid ${result.error ? P.red : P.green}40`, borderRadius: 12, padding: 22 }}>
       {result.error ? <div style={{ display: "flex", alignItems: "center", gap: 10, color: P.red }}><I.Warn /><div><div style={{ fontWeight: 700 }}>Error</div><div style={{ fontSize: 12, marginTop: 4 }}>{result.error}</div></div></div> : <div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, color: P.green, marginBottom: 16 }}><I.Check /><span style={{ fontWeight: 700, fontSize: 14 }}>Parsed successfully</span></div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 16 }}>
+        <div className="ncd-ingest-parsed" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 16 }}>
           <div style={{ background: P.surfaceAlt, borderRadius: 8, padding: 14, textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 800, color: P.accent }}>{result.rowCount.toLocaleString()}</div><div style={{ fontSize: 11, color: P.textDim }}>Rows</div></div>
           <div style={{ background: P.surfaceAlt, borderRadius: 8, padding: 14, textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 800, color: P.text }}>{result.districtCount}</div><div style={{ fontSize: 11, color: P.textDim }}>Districts</div></div>
           <div style={{ background: P.surfaceAlt, borderRadius: 8, padding: 14, textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 800, color: result.warnings?.length ? P.amber : P.green }}>{result.warnings?.length || 0}</div><div style={{ fontSize: 11, color: P.textDim }}>Warnings</div></div>
@@ -1577,32 +1578,69 @@ export default function App() {
   const roleColors = { admin: P.accent, district_manager: P.purple, field_worker: P.green, analyst: P.blue };
 
   return <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: P.bg, color: P.text, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
-    <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}textarea{font-family:'DM Sans',sans-serif}select{font-family:'DM Sans',sans-serif}`}</style>
+    <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');*{box-sizing:border-box;margin:0;padding:0}html,body{max-width:100vw;overflow-x:hidden}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${P.borderLight};border-radius:3px}@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}textarea{font-family:'DM Sans',sans-serif}select{font-family:'DM Sans',sans-serif}
+@media(max-width:768px){
+  .ncd-header-title{display:none!important}
+  .ncd-header-date{display:none!important}
+  .ncd-role-bar{padding:4px 12px!important;font-size:10px!important}
+  .ncd-nav-label{display:none!important}
+  .ncd-nav-btn{padding:12px 8px!important;gap:4px!important}
+  .ncd-reports-pad{padding:14px!important}
+  .ncd-kpi-grid{grid-template-columns:repeat(2,1fr)!important}
+  .ncd-2col{grid-template-columns:1fr!important}
+  .ncd-disease-grid{grid-template-columns:1fr!important}
+  .ncd-budget-grid{grid-template-columns:1fr!important}
+  .ncd-screening-grid{grid-template-columns:1fr!important}
+  .ncd-tab-bar{padding:0 10px!important}
+  .ncd-filter-bar{flex-direction:column!important;align-items:stretch!important;gap:8px!important}
+  .ncd-filter-pills{flex-wrap:wrap!important}
+  .ncd-filter-pill{padding:4px 8px!important;font-size:10px!important}
+  .ncd-chat-msgs{padding:14px!important}
+  .ncd-chat-input{padding:10px 14px 16px!important}
+  .ncd-chat-sugg{padding:0 14px 10px!important}
+  .ncd-chat-bubble{max-width:90%!important}
+  .ncd-ingest-pad{padding:14px!important}
+  .ncd-ingest-inner{gap:16px!important}
+  .ncd-ingest-stats{grid-template-columns:repeat(2,1fr)!important}
+  .ncd-ingest-schema{grid-template-columns:1fr!important}
+  .ncd-ingest-parsed{grid-template-columns:1fr!important}
+  .ncd-heatmap-scroll{overflow-x:auto!important}
+  .ncd-sidebar{transition:transform 0.2s ease!important;position:absolute!important;left:0;top:0;bottom:0;z-index:500;box-shadow:4px 0 24px rgba(0,0,0,0.15);width:260px!important;min-width:260px!important;transform:translateX(-100%)}
+  .ncd-sidebar-open{transform:translateX(0)!important}
+  .ncd-sidebar-overlay{display:block!important}
+  .ncd-main-content{overflow:auto!important}
+  .ncd-table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+  .ncd-chat-top{padding:8px 12px!important}
+  .ncd-chat-top span{font-size:11px!important}
+  .ncd-header{padding:10px 12px!important}
+  .ncd-header-logo{gap:8px!important}
+  .ncd-role-select{font-size:11px!important;padding:4px 8px!important}
+}`}</style>
 
-    <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, #1a1a1a)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff" }}>N</div>
-        <div><div style={{ fontSize: 16, fontWeight: 800 }}>NCD Analytics</div><div style={{ fontSize: 10, color: P.textDim, textTransform: "uppercase", letterSpacing: "0.04em" }}>State Health Dept — AI Surveillance</div></div>
+    <header className="ncd-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+      <div className="ncd-header-logo" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, #1a1a1a)`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff", flexShrink: 0 }}>N</div>
+        <div className="ncd-header-title"><div style={{ fontSize: 16, fontWeight: 800 }}>NCD Analytics</div><div style={{ fontSize: 10, color: P.textDim, textTransform: "uppercase", letterSpacing: "0.04em" }}>State Health Dept — AI Surveillance</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 11, color: P.textDim }}>{time}</span>
-        <select value={roleKey} onChange={e => setRoleKey(e.target.value)} style={{ background: P.surfaceAlt, border: `1px solid ${roleColors[roleKey]}50`, borderRadius: 8, padding: "6px 12px", color: roleColors[roleKey], fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer" }}>
+        <span className="ncd-header-date" style={{ fontSize: 11, color: P.textDim }}>{time}</span>
+        <select value={roleKey} onChange={e => setRoleKey(e.target.value)} className="ncd-role-select" style={{ background: P.surfaceAlt, border: `1px solid ${roleColors[roleKey]}50`, borderRadius: 8, padding: "6px 12px", color: roleColors[roleKey], fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer" }}>
           {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
       </div>
     </header>
 
     <div style={{ display: "flex", borderBottom: `1px solid ${P.border}`, overflowX: "auto" }}>
-      {visibleNav.map(s => <button key={s.id} onClick={() => setSection(s.id)} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}><s.icon /> {s.l}{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
+      {visibleNav.map(s => <button key={s.id} onClick={() => setSection(s.id)} className="ncd-nav-btn" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "14px 20px", background: section === s.id ? P.surface : "transparent", border: "none", borderBottom: section === s.id ? `2px solid ${P.accent}` : "2px solid transparent", color: section === s.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}><s.icon /> <span className="ncd-nav-label">{s.l}</span>{s.badge && <span style={{ fontSize: 9, background: P.accentGlow, color: P.accent, padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{s.badge}</span>}</button>)}
     </div>
 
-    <div style={{ padding: "6px 24px", background: `${roleColors[roleKey]}10`, borderBottom: `1px solid ${roleColors[roleKey]}20`, display: "flex", alignItems: "center", gap: 8 }}>
+    <div className="ncd-role-bar" style={{ padding: "6px 24px", background: `${roleColors[roleKey]}10`, borderBottom: `1px solid ${roleColors[roleKey]}20`, display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ width: 6, height: 6, borderRadius: "50%", background: roleColors[roleKey] }} />
       <span style={{ fontSize: 11, color: roleColors[roleKey], fontWeight: 600 }}>{role.label}</span>
       {!role.allDistricts && role.district && <span style={{ fontSize: 11, color: P.textDim }}>· Data restricted to {role.district}</span>}
     </div>
 
-    <div style={{ flex: 1, overflow: "hidden" }}>
+    <div className="ncd-main-content" style={{ flex: 1, overflow: "hidden" }}>
       {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
       {!loading && section === "reports" && <Reports rawRows={visibleRows} role={role} />}
       {!loading && section === "chat" && <Chat dd={dd} st={st} rawRows={visibleRows} />}
