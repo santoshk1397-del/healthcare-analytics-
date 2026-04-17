@@ -27,8 +27,10 @@ export default async function handler(req, res) {
 
     // Convert OpenAI format to Claude-compatible format (frontend expects this)
     const text = data.choices?.[0]?.message?.content || "No response generated.";
+    const usage = data.usage || null;
     return res.status(200).json({
       content: [{ type: "text", text }],
+      usage,
     });
 
   } catch (err) {
