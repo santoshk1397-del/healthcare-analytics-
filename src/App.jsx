@@ -752,15 +752,171 @@ function Reports({ rawRows, role }) {
   };
 
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [aiExporting, setAiExporting] = useState(false);
+
+  // ── Export AI Insights Presentation ──
+  const exportAIInsights = async () => {
+    setShowExportMenu(false);
+    setAiExporting(true);
+    try {
+      // Build data context
+      const districtCtx = fdd.map(d => `${d.name}: Cases=${d.totalCases}, Screening=${d.screeningRate}%, Drugs=${d.drugAvailability}%, Budget=${(d.budgetUtilized*100).toFixed(0)}%, HR=${(d.hrFilled*100).toFixed(0)}%, Diseases=[${d.diseaseBreakdown.map(x => `${x.disease}:${x.cases}`).join(",")}]`).join("\n");
+      const trendCtx = ts.slice(-12).map(t => `${t.label}: Cases=${t.cases}, ScrRate=${t.scrPct.toFixed(1)}%, BudRate=${t.budPct.toFixed(1)}%`).join("\n");
+      const diseaseCtx = totDis.map(d => `${d.disease}: ${d.cases} cases (${fst.totalCases > 0 ? ((d.cases/fst.totalCases)*100).toFixed(1) : 0}%)`).join("\n");
+
+      const prompt = `You are generating content for an executive NCD surveillance presentation for Chhattisgarh state health officials. Based on the data below, generate EXACTLY 5 sections in JSON format.
+
+DATA:
+State: Pop ${(fst.totalPopulation/1e6).toFixed(1)}M, Cases ${fst.totalCases.toLocaleString()}, Screening ${fst.avgScreening}%, Budget ${fst.avgBudgetUtil}%, Drugs ${fst.avgDrugAvail}%, HR ${fst.avgHrFill}%
+Filters: ${filterLabel}
+
+DISTRICTS:
+${districtCtx}
+
+MONTHLY TRENDS (last 12):
+${trendCtx}
+
+DISEASES:
+${diseaseCtx}
+
+Return ONLY a JSON array with exactly 5 objects, each with these fields:
+- title: slide title (string)
+- insight: 2-3 sentence executive summary of the key finding (string)
+- bullets: array of 3-4 action items or key points (array of strings)
+- highlight_metric: the single most important number to highlight (string, e.g. "34.2%")
+- highlight_label: what that number represents (string, e.g. "Avg Screening Rate")
+- severity: "critical" | "warning" | "good" (string)
+
+The 5 slides should cover:
+1. Overall State Health Summary & Key Risks
+2. District Performance Gaps (name specific worst performers with numbers)
+3. Disease Burden Analysis (which diseases are growing fastest, cite specific %)
+4. Screening & Early Detection (coverage gaps, specific districts failing)
+5. Strategic Recommendations (concrete, actionable, tied to data)
+
+Be specific. Cite actual numbers from the data. No generic statements.
+Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
+
+      const res = await fetch("/api/chat/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system: "You are a health data analyst. Return ONLY valid JSON. No markdown, no backticks, no explanation.", messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      const rawText = data.content?.filter(b => b.type === "text").map(b => b.text).join("") || "";
+      
+      // Parse JSON — handle potential markdown wrapping
+      let slides;
+      try {
+        const clean = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        slides = JSON.parse(clean);
+      } catch (e) {
+        // Try extracting array from response
+        const match = rawText.match(/\[[\s\S]*\]/);
+        if (match) slides = JSON.parse(match[0]);
+        else throw new Error("Could not parse AI response");
+      }
+
+      // Build charts for the presentation
+      const monthlyChart = svgBar(ts.slice(-12).map(t => ({ l: t.label, v: t.cases })), { color: "#C2410C" });
+      const scrChart = svgBar(ts.slice(-12).map(t => ({ l: t.label, v: Math.round(t.scrPct * 10) / 10 })), { color: "#059669" });
+      const diseaseDonut = svgDonut(totDis.map(d => ({ l: d.disease, v: d.cases })));
+      const distBars = svgHBar([...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).slice(0, 8).map(d => {
+        const r = parseFloat(d.screeningRate);
+        return { l: d.name, v: r, suffix: "%", color: r > 65 ? "#059669" : r > 45 ? "#D97706" : "#991B1B" };
+      }));
+
+      const sevColors = { critical: "#991B1B", warning: "#D97706", good: "#059669" };
+      const sevBg = { critical: "#fef2f2", warning: "#fffbeb", good: "#f0fdf4" };
+      const sevBorder = { critical: "#fecaca", warning: "#fde68a", good: "#bbf7d0" };
+
+      const slideCharts = [monthlyChart, distBars, diseaseDonut, scrChart, ""];
+
+      const slideHTML = slides.map((s, i) => {
+        const sev = s.severity || "warning";
+        const chart = slideCharts[i] || "";
+        return `<div class="slide">
+          <div class="slide-header">
+            <div class="slide-tag" style="background:${sevBg[sev]};color:${sevColors[sev]};border:1px solid ${sevBorder[sev]}">${sev.toUpperCase()}</div>
+            <div class="slide-num">${s.title}</div>
+          </div>
+          <div class="slide-body">
+            <div class="two-col">
+              <div>
+                <div class="insight-box" style="border-left:3px solid ${sevColors[sev]}">${s.insight}</div>
+                <div class="metric-highlight">
+                  <div class="metric-val" style="color:${sevColors[sev]}">${s.highlight_metric}</div>
+                  <div class="metric-label">${s.highlight_label}</div>
+                </div>
+                <div class="bullet-list">
+                  ${s.bullets.map(b => `<div class="bullet-item"><span class="bullet-dot" style="background:${sevColors[sev]}"></span>${b}</div>`).join("")}
+                </div>
+              </div>
+              <div class="chart-area">${chart}</div>
+            </div>
+          </div>
+          <div class="slide-footer">NCD Analytics · AI-Generated Insights · ${nowStr} · Slide ${i+1}/5</div>
+        </div>`;
+      }).join("\n");
+
+      openPrint(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>AI Insights — ${filterLabel}</title>
+      <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1f2937}
+        .cover{width:100%;max-width:900px;min-height:540px;margin:20px auto;background:linear-gradient(135deg,#1a1a1a 0%,#C2410C 100%);border-radius:12px;display:flex;flex-direction:column;justify-content:center;align-items:center;color:white;page-break-after:always;text-align:center;padding:60px}
+        .cover h1{font-size:36px;font-weight:800;margin-bottom:12px}
+        .cover .sub{font-size:16px;opacity:0.8;margin-bottom:32px}
+        .cover .meta{font-size:12px;opacity:0.6}
+        .cover .ai-badge{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:6px 16px;font-size:11px;font-weight:700;margin-bottom:24px;display:inline-block}
+        .slide{width:100%;max-width:900px;min-height:500px;margin:20px auto;background:white;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.08);overflow:visible;page-break-after:always;display:flex;flex-direction:column}
+        .slide-header{padding:28px 40px 0}
+        .slide-tag{display:inline-block;padding:3px 12px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:0.05em;margin-bottom:8px}
+        .slide-num{font-size:24px;font-weight:800;color:#1f2937;line-height:1.3}
+        .slide-body{flex:1;padding:20px 40px 16px}
+        .slide-footer{padding:12px 40px;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+        .insight-box{background:#f8fafc;padding:14px 18px;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;color:#334155;margin-bottom:16px}
+        .metric-highlight{text-align:center;padding:16px;background:#f8fafc;border-radius:10px;margin-bottom:16px}
+        .metric-val{font-size:36px;font-weight:800}
+        .metric-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-top:4px}
+        .bullet-list{display:flex;flex-direction:column;gap:8px}
+        .bullet-item{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.6;color:#475569}
+        .bullet-dot{width:6px;height:6px;border-radius:50%;margin-top:6px;flex-shrink:0}
+        .chart-area{display:flex;align-items:center;justify-content:center}
+        @media print{body{background:white;padding:0}.slide{box-shadow:none;margin:0;border-radius:0}svg{max-width:100%!important}}
+      </style></head><body>
+      <div class="cover">
+        <div class="ai-badge">AI-GENERATED INSIGHTS</div>
+        <h1>NCD Surveillance Analysis</h1>
+        <div class="sub">State Health Department — Chhattisgarh</div>
+        <div class="meta">${filterLabel} · Generated ${nowStr}<br>Powered by AI Analytics Engine</div>
+      </div>
+      ${slideHTML}
+      <script>window.onload=function(){window.print()}</script>
+      </body></html>`);
+    } catch (e) {
+      console.error("AI export error:", e);
+      alert("AI Insights generation failed: " + e.message + "\nMake sure your AI chat API is configured.");
+    }
+    setAiExporting(false);
+  };
 
   return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    {aiExporting && <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: P.surface, borderRadius: 16, padding: "32px 40px", textAlign: "center", boxShadow: "0 12px 40px rgba(0,0,0,0.2)" }}>
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 16 }}>{[0,1,2].map(j => <div key={j} style={{ width: 8, height: 8, borderRadius: "50%", background: P.accent, animation: `pulse 1.2s ease ${j*0.2}s infinite` }} />)}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>Generating AI Insights...</div>
+        <div style={{ fontSize: 12, color: P.textDim, marginTop: 6 }}>Analyzing data and creating presentation</div>
+      </div>
+    </div>}
     <div className="ncd-tab-bar" style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "visible", alignItems: "center" }}>
       {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
       <div style={{ marginLeft: "auto", padding: "0 4px", position: "relative", zIndex: 200 }}>
         <button onClick={() => setShowExportMenu(!showExportMenu)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
           <I.Download /> Export ▾
         </button>
-        {showExportMenu && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 9999, minWidth: 180, overflow: "hidden" }}>
+        {showExportMenu && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 9999, minWidth: 200, overflow: "hidden" }}>
           <button onClick={() => { exportSummary(); setShowExportMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
             <I.Report /> Summary Report
             <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>Tables</span>
@@ -769,6 +925,11 @@ function Reports({ rawRows, role }) {
           <button onClick={() => { exportPresentation(); setShowExportMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
             <I.Eye /> Presentation
             <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>Charts</span>
+          </button>
+          <div style={{ height: 1, background: P.border }} />
+          <button onClick={exportAIInsights} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
+            <I.Bot /> AI Insights
+            <span style={{ fontSize: 10, color: P.accent, marginLeft: "auto", fontWeight: 700 }}>AI</span>
           </button>
         </div>}
       </div>
