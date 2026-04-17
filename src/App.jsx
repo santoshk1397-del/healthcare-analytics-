@@ -923,13 +923,13 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           </button>
           <div style={{ height: 1, background: P.border }} />
           <button onClick={() => { exportPresentation(); setShowExportMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
-            <I.Eye /> Presentation
-            <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>Charts</span>
+            <I.Eye /> Charts
+            <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>Illustrations</span>
           </button>
           <div style={{ height: 1, background: P.border }} />
           <button onClick={exportAIInsights} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
             <I.Bot /> AI Insights
-            <span style={{ fontSize: 10, color: P.accent, marginLeft: "auto", fontWeight: 700 }}>AI</span>
+            <span style={{ fontSize: 10, color: P.accent, marginLeft: "auto", fontWeight: 700 }}>PPT</span>
           </button>
         </div>}
       </div>
