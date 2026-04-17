@@ -267,7 +267,7 @@ const P = {
   // 🚦 STATUS
   green: "#059669",
   red: "#991B1B",
-  amber: "#B45309",
+  amber: "#D97706",
   purple: "#7E22CE",
   blue: "#1E40AF",
   // 🎨 subtle backgrounds
