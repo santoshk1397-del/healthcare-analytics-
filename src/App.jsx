@@ -673,68 +673,109 @@ function Reports({ rawRows, role }) {
 
 // ─── AI Chat ───
 function Chat({ dd, st, rawRows }) {
-  const [msgs, setMsgs] = useState([{ role: "assistant", content: "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state, including month-by-month breakdowns and year-over-year trends.\n\nI can also search the web for evidence-based guidelines, research, and intervention strategies.\n\nHow may I help you today?" }]);
+  const WELCOME = "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state, including month-by-month breakdowns and year-over-year trends.\n\nHow may I help you today?";
+  const [msgs, setMsgs] = useState([{ role: "assistant", content: WELCOME }]);
   const [inp, setInp] = useState(""); const [loading, setLoading] = useState(false);
+  const [threads, setThreads] = useState([]);
+  const [activeThread, setActiveThread] = useState(null);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [loadingThreads, setLoadingThreads] = useState(true);
   const endRef = useRef(null); const inpRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
-  // Build rich context from raw rows
-  const buildContext = () => {
-    // State-level summary
-    let ctx = `STATE NCD DATA — Chhattisgarh\nPopulation: ${(st.totalPopulation/1e6).toFixed(1)}M | Total Cases: ${st.totalCases.toLocaleString()} | Avg Screening: ${st.avgScreening}% | Budget Util: ${st.avgBudgetUtil}% | Drug Avail: ${st.avgDrugAvail}% | HR Fill: ${st.avgHrFill}%\n\n`;
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/chat/list_threads");
+        const json = await res.json();
+        if (json.threads) setThreads(json.threads);
+      } catch (e) { console.error("Thread list error:", e); }
+      setLoadingThreads(false);
+    })();
+  }, []);
 
-    // Per-district summary with all metrics
+  const refreshThreads = async () => {
+    try {
+      const res = await fetch("/api/chat/list_threads");
+      const json = await res.json();
+      if (json.threads) setThreads(json.threads);
+    } catch (e) {}
+  };
+
+  const newThread = () => {
+    setMsgs([{ role: "assistant", content: WELCOME }]);
+    setActiveThread(null);
+    setShowSidebar(false);
+  };
+
+  const loadThread = async (threadId) => {
+    try {
+      const res = await fetch(`/api/chat/thread?id=${threadId}`);
+      const json = await res.json();
+      if (json.messages?.length > 0) {
+        setMsgs(json.messages.map(m => ({ role: m.role, content: m.content })));
+      } else {
+        setMsgs([{ role: "assistant", content: WELCOME }]);
+      }
+      setActiveThread(threadId);
+    } catch (e) { console.error("Load thread error:", e); }
+    setShowSidebar(false);
+  };
+
+  const saveMsg = async (threadId, role, content, title) => {
+    try {
+      await fetch("/api/chat/thread", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "message", thread_id: threadId, role, content, title }),
+      });
+    } catch (e) { console.error("Save msg error:", e); }
+  };
+
+  const ensureThread = async (firstMsg) => {
+    if (activeThread) return activeThread;
+    try {
+      const title = firstMsg.length > 50 ? firstMsg.slice(0, 50) + "..." : firstMsg;
+      const res = await fetch("/api/chat/thread", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", title }),
+      });
+      const json = await res.json();
+      if (json.thread?.id) {
+        setActiveThread(json.thread.id);
+        await refreshThreads();
+        return json.thread.id;
+      }
+    } catch (e) { console.error("Create thread error:", e); }
+    return null;
+  };
+
+  const buildContext = () => {
+    let ctx = `STATE NCD DATA — Chhattisgarh\nPopulation: ${(st.totalPopulation/1e6).toFixed(1)}M | Total Cases: ${st.totalCases.toLocaleString()} | Avg Screening: ${st.avgScreening}% | Budget Util: ${st.avgBudgetUtil}% | Drug Avail: ${st.avgDrugAvail}% | HR Fill: ${st.avgHrFill}%\n\n`;
     ctx += "DISTRICT SUMMARIES:\n";
     dd.forEach(d => {
       ctx += `${d.name} (${d.zone} Zone, Pop ${(d.population/1e5).toFixed(1)}L): Cases=${d.totalCases.toLocaleString()}, Screening=${d.screeningRate}%, Drug=${d.drugAvailability}%, Budget=${(d.budgetUtilized*100).toFixed(0)}%, HR=${(d.hrFilled*100).toFixed(0)}%, Diseases=[${d.diseaseBreakdown.map(x => `${x.disease}:${x.cases}${x.trend ? '(trend:' + (x.trend>0?'+':'') + x.trend.toFixed(0) + '%)' : ''}`).join(', ')}]\n`;
     });
-
-    // Monthly breakdown from raw rows — aggregate per district per month
-    const monthlyByDistrict = {};
-    rawRows.forEach(r => {
-      const key = `${r.district_name}|${r.month}|${r.year || ''}`;
-      if (!monthlyByDistrict[key]) monthlyByDistrict[key] = { district: r.district_name, month: r.month, year: r.year, cases: 0, screening_target: 0, screening_achieved: 0 };
-      const m = monthlyByDistrict[key];
-      m.cases += Number(r.cases) || 0;
-      m.screening_target += Number(r.screening_target) || 0;
-      m.screening_achieved += Number(r.screening_achieved) || 0;
-    });
-
-    // Year-over-year by district+disease
-    const yoyByDistrictDisease = {};
+    const yoy = {};
     rawRows.forEach(r => {
       const yr = Number(r.year) || (r.month_date ? new Date(r.month_date).getFullYear() : null);
       if (!yr) return;
       const key = `${r.district_name}|${r.disease_type}`;
-      if (!yoyByDistrictDisease[key]) yoyByDistrictDisease[key] = {};
-      yoyByDistrictDisease[key][yr] = (yoyByDistrictDisease[key][yr] || 0) + (Number(r.cases) || 0);
+      if (!yoy[key]) yoy[key] = {};
+      yoy[key][yr] = (yoy[key][yr] || 0) + (Number(r.cases) || 0);
     });
-
-    ctx += "\nYEAR-OVER-YEAR DISEASE TRENDS (cases by year):\n";
-    Object.entries(yoyByDistrictDisease).forEach(([key, years]) => {
-      const sortedYears = Object.keys(years).sort();
-      if (sortedYears.length >= 2) {
-        const [district, disease] = key.split("|");
-        const vals = sortedYears.map(y => `${y}:${years[y]}`).join(", ");
-        const latest = Number(sortedYears[sortedYears.length - 1]);
-        const prev = Number(sortedYears[sortedYears.length - 2]);
-        const pct = years[prev] > 0 ? (((years[latest] - years[prev]) / years[prev]) * 100).toFixed(0) : "N/A";
-        ctx += `${district} ${disease}: ${vals} (change: ${pct}%)\n`;
+    ctx += "\nYEAR-OVER-YEAR DISEASE TRENDS:\n";
+    Object.entries(yoy).forEach(([key, years]) => {
+      const sy = Object.keys(years).sort();
+      if (sy.length >= 2) {
+        const [dist, dis] = key.split("|");
+        const vals = sy.map(y => `${y}:${years[y]}`).join(", ");
+        const l = Number(sy[sy.length - 1]), p = Number(sy[sy.length - 2]);
+        const pct = years[p] > 0 ? (((years[l] - years[p]) / years[p]) * 100).toFixed(0) : "N/A";
+        ctx += `${dist} ${dis}: ${vals} (change: ${pct}%)\n`;
       }
     });
-
-    // Monthly trend for key districts (top 5 by cases)
-    const topDistricts = [...dd].sort((a, b) => b.totalCases - a.totalCases).slice(0, 5).map(d => d.name);
-    ctx += "\nMONTHLY CASE TRENDS (top districts):\n";
-    topDistricts.forEach(distName => {
-      const monthData = Object.values(monthlyByDistrict)
-        .filter(m => m.district === distName)
-        .sort((a, b) => (a.year || 0) - (b.year || 0));
-      if (monthData.length > 0) {
-        ctx += `${distName}: ${monthData.map(m => `${m.month}${m.year ? "'" + String(m.year).slice(2) : ''}:${m.cases}`).join(", ")}\n`;
-      }
-    });
-
     return ctx;
   };
 
@@ -742,60 +783,82 @@ function Chat({ dd, st, rawRows }) {
     if (!inp.trim() || loading) return;
     const msg = inp.trim(); setInp("");
     const next = [...msgs, { role: "user", content: msg }]; setMsgs(next); setLoading(true);
+
+    const threadId = await ensureThread(msg);
+    if (threadId) {
+      const isFirst = msgs.filter(m => m.role === "user").length === 0;
+      await saveMsg(threadId, "user", msg, isFirst ? (msg.length > 50 ? msg.slice(0, 50) + "..." : msg) : null);
+    }
+
     try {
       const ctx = buildContext();
       const apiMsgs = next.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-10);
-     const res = await fetch("/api/chat/send", {
+      const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials. You have access to the complete NCD surveillance dataset AND can search the web for current research, WHO/NPCDCS guidelines, and evidence-based interventions.
-
-DATASET:
-${ctx}
-
-YOUR APPROACH:
-1. ALWAYS start by analyzing the actual data above to answer data questions. Cite specific numbers.
-2. When asked "why" something is happening (e.g. rising cases), first show the data trend, then use web search to find relevant research, risk factors, or epidemiological explanations.
-3. When asked for interventions or recommendations, search for current WHO, NPCDCS, or peer-reviewed evidence and combine with the local data context.
-4. For gap analysis, compare metrics across districts and flag where each district falls below state averages or national benchmarks.
-5. Be concise but thorough. Use bullet points. Bold key numbers.
-
-IMPORTANT: You are talking to senior government officials (District Collectors, CMHOs, State Health Directors). Be professional, actionable, and data-driven.`,
+          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials.\n\nDATASET:\n${ctx}\n\nAPPROACH:\n1. ALWAYS analyze data above first. Cite specific numbers.\n2. For "why" questions, show the trend then explain causes from public health knowledge.\n3. For interventions, reference WHO/NPCDCS evidence combined with local data.\n4. For gap analysis, compare against state averages and national benchmarks.\n5. Be concise but thorough. Bullet points for clarity.\n\nAUDIENCE: Senior government officials. Professional, actionable, data-driven.`,
           messages: apiMsgs,
         }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
-      // Extract text from response (may include tool use blocks)
-      const text = data.content
-        ?.filter(b => b.type === "text")
-        .map(b => b.text)
-        .filter(Boolean)
-        .join("\n") || "Could not process. Try again.";
+      const text = data.content?.filter(b => b.type === "text").map(b => b.text).filter(Boolean).join("\n") || "Could not process. Try again.";
       setMsgs(p => [...p, { role: "assistant", content: text }]);
-    } catch (e) { console.error(e); setMsgs(p => [...p, { role: "assistant", content: "Unable to connect. Please try again." }]); }
+      if (threadId) await saveMsg(threadId, "assistant", text);
+    } catch (e) {
+      console.error(e);
+      const errMsg = "Unable to connect. Please try again.";
+      setMsgs(p => [...p, { role: "assistant", content: errMsg }]);
+      if (threadId) await saveMsg(threadId, "assistant", errMsg);
+    }
     setLoading(false);
-  }, [inp, loading, msgs, dd, st, rawRows]);
+    await refreshThreads();
+  }, [inp, loading, msgs, dd, st, rawRows, activeThread]);
 
   const sugg = ["What are the biggest gaps in Raipur?", "Why are diabetes cases increasing in Bastar?", "Compare screening across all zones", "Recommend interventions for low-performing districts"];
+  const timeAgo = (d) => { const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000); if (m < 1) return "Just now"; if (m < 60) return `${m}m ago`; const h = Math.floor(m / 60); return h < 24 ? `${h}h ago` : "1d ago"; };
 
-  return <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-    <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
-      {msgs.map((m, i) => <div key={i} style={{ display: "flex", gap: 12, flexDirection: m.role === "user" ? "row-reverse" : "row" }}>
-        {m.role === "assistant" && <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div>}
-        <div style={{ maxWidth: "75%", padding: "14px 18px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? P.accent : P.surface, border: m.role === "user" ? "none" : `1px solid ${P.border}`, color: m.role === "user" ? "#fff" : P.text, fontSize: 13.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{m.content}</div>
-      </div>)}
-      {loading && <div style={{ display: "flex", gap: 12 }}><div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div><div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: "16px 16px 16px 4px", padding: "14px 20px", display: "flex", gap: 6 }}>{[0,1,2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: P.accent, animation: `pulse 1.2s ease ${j*0.2}s infinite` }} />)}</div></div>}
-      <div ref={endRef} />
-    </div>
-    {msgs.length <= 1 && <div style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
-    <div style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
-      <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px" }}>
-        <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
-        <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
+  return <div style={{ display: "flex", height: "100%" }}>
+    <div style={{ width: showSidebar ? 280 : 0, minWidth: showSidebar ? 280 : 0, borderRight: showSidebar ? `1px solid ${P.border}` : "none", background: P.surface, display: "flex", flexDirection: "column", overflow: "hidden", transition: "all 0.2s" }}>
+      <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${P.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chat History</span>
+        <button onClick={newThread} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: P.accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>+ New</button>
       </div>
-      <div style={{ fontSize: 10, color: P.textDim, marginTop: 6, textAlign: "center" }}>AI can search the web for guidelines and research to supplement data analysis</div>
+      <div style={{ flex: 1, overflow: "auto", padding: 8 }}>
+        {loadingThreads && <div style={{ padding: 20, textAlign: "center", color: P.textDim, fontSize: 12 }}>Loading...</div>}
+        {!loadingThreads && threads.length === 0 && <div style={{ padding: 20, textAlign: "center", color: P.textDim, fontSize: 12 }}>No conversations yet</div>}
+        {threads.map(t => (
+          <button key={t.id} onClick={() => loadThread(t.id)} style={{ width: "100%", textAlign: "left", padding: "12px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: activeThread === t.id ? P.accentGlow : "transparent", marginBottom: 2, display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: activeThread === t.id ? P.accent : P.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", width: "100%" }}>{t.title || "Untitled"}</div>
+            <div style={{ fontSize: 10, color: P.textDim }}>{timeAgo(t.updated_at)}</div>
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: "8px 12px", borderTop: `1px solid ${P.border}`, fontSize: 10, color: P.textDim, textAlign: "center" }}>Threads auto-delete after 24h</div>
+    </div>
+
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: `1px solid ${P.border}`, background: P.surface }}>
+        <button onClick={() => setShowSidebar(!showSidebar)} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 8px", cursor: "pointer", color: P.textMuted, display: "flex", alignItems: "center" }}><I.List /></button>
+        <span style={{ fontSize: 13, fontWeight: 600, color: P.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeThread ? (threads.find(t => t.id === activeThread)?.title || "Conversation") : "New Conversation"}</span>
+        {activeThread && <button onClick={newThread} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${P.border}`, background: "none", color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>+ New Chat</button>}
+      </div>
+      <div style={{ flex: 1, overflow: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+        {msgs.map((m, i) => <div key={i} style={{ display: "flex", gap: 12, flexDirection: m.role === "user" ? "row-reverse" : "row" }}>
+          {m.role === "assistant" && <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div>}
+          <div style={{ maxWidth: "75%", padding: "14px 18px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? P.accent : P.surface, border: m.role === "user" ? "none" : `1px solid ${P.border}`, color: m.role === "user" ? "#fff" : P.text, fontSize: 13.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{m.content}</div>
+        </div>)}
+        {loading && <div style={{ display: "flex", gap: 12 }}><div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div><div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: "16px 16px 16px 4px", padding: "14px 20px", display: "flex", gap: 6 }}>{[0,1,2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: P.accent, animation: `pulse 1.2s ease ${j*0.2}s infinite` }} />)}</div></div>}
+        <div ref={endRef} />
+      </div>
+      {msgs.length <= 1 && <div style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
+      <div style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
+        <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px" }}>
+          <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
+          <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
+        </div>
+      </div>
     </div>
   </div>;
 }
