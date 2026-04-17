@@ -350,13 +350,7 @@ function KPI({ icon: Icon, label, value, sub, color }) {
 }
 function BarChart({ data, lk, vk, color = P.accent, h = 200 }) {
   const max = Math.max(...data.map(d => d[vk]), 1);
-  const many = data.length > 8;
-  const skipLabel = data.length > 12 ? Math.ceil(data.length / 8) : 1;
-  return <div style={{ display: "flex", alignItems: "flex-end", gap: many ? 1 : 3, height: h, padding: "0 4px", overflow: "hidden" }}>{data.map((d, i) => <div key={i} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-    <div style={{ fontSize: many ? 8 : 9, color: P.textDim, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden" }}>{d[vk] >= 1000 ? (d[vk] / 1000).toFixed(0) + "k" : many && d[vk] === 0 ? "" : d[vk]}</div>
-    <div style={{ width: "100%", maxWidth: many ? 20 : 32, height: Math.max((d[vk] / max) * (h - 28), 2), background: `linear-gradient(180deg, ${color}, ${color}88)`, borderRadius: "4px 4px 2px 2px" }} />
-    <div style={{ fontSize: many ? 7 : 9, color: P.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" }}>{i % skipLabel === 0 ? d[lk] : ""}</div>
-  </div>)}</div>;
+  return <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: h, padding: "0 4px" }}>{data.map((d, i) => <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}><div style={{ fontSize: 9, color: P.textDim, fontWeight: 600 }}>{d[vk] >= 1000 ? (d[vk] / 1000).toFixed(0) + "k" : d[vk]}</div><div style={{ width: "100%", maxWidth: 32, height: Math.max((d[vk] / max) * (h - 24), 2), background: `linear-gradient(180deg, ${color}, ${color}88)`, borderRadius: "4px 4px 2px 2px" }} /><div style={{ fontSize: 9, color: P.textDim }}>{d[lk]}</div></div>)}</div>;
 }
 function Donut({ data, size = 160 }) {
   const total = data.reduce((s, d) => s + d.cases, 0);
@@ -701,7 +695,7 @@ function Reports({ rawRows, role }) {
       {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div>
         {fb}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 16 }}>{DISEASES.map(dis => { const disTs = ts.map(t => ({ m: t.label, c: t.diseases[dis] || 0 })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={disTs} lk="m" vk="c" color={DC[dis]} h={140} /></div>; })}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>{DISEASES.map(dis => { const disTs = ts.map(t => ({ m: t.label, c: t.diseases[dis] || 0 })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={disTs} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
       </div>}
 
       {/* Budget */}
