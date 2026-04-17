@@ -5,43 +5,28 @@ export default async function handler(req, res) {
   try {
     const { system, messages } = req.body;
 
-    // Convert from Claude message format to Gemini format
-    const geminiContents = messages.map(m => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: system }],
-          },
-          contents: geminiContents,
-          generationConfig: {
-            maxOutputTokens: 2000,
-            temperature: 0.7,
-          },
-        }),
-      }
-    );
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 2000,
+        temperature: 0.7,
+        messages: [
+          { role: "system", content: system },
+          ...messages,
+        ],
+      }),
+    });
 
     const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || "Groq API error");
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || JSON.stringify(data.error) || "Gemini API error");
-    }
-
-    // Convert Gemini response back to Claude-like format
-    const text = data.candidates?.[0]?.content?.parts
-      ?.map(p => p.text)
-      .filter(Boolean)
-      .join("\n") || "No response generated.";
-
-    // Return in Claude-compatible format so frontend doesn't need changes
+    // Convert OpenAI format to Claude-compatible format (frontend expects this)
+    const text = data.choices?.[0]?.message?.content || "No response generated.";
     return res.status(200).json({
       content: [{ type: "text", text }],
     });
