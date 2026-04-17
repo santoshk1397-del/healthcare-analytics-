@@ -61,6 +61,43 @@ function getRowDate(r) {
   return null;
 }
 
+// Build time-series buckets from filtered raw rows
+function buildTimeSeries(rawRows, { district = "all", dateFrom = null, dateTo = null } = {}) {
+  const MLABEL = { "01":"Jan", "02":"Feb", "03":"Mar", "04":"Apr", "05":"May", "06":"Jun", "07":"Jul", "08":"Aug", "09":"Sep", "10":"Oct", "11":"Nov", "12":"Dec" };
+  let rows = rawRows;
+  if (district !== "all") rows = rows.filter(r => r.district_name === district);
+  if (dateFrom || dateTo) {
+    rows = rows.filter(r => {
+      const d = getRowDate(r);
+      if (!d) return true;
+      if (dateFrom && d < dateFrom) return false;
+      if (dateTo && d > dateTo) return false;
+      return true;
+    });
+  }
+  // Bucket by YYYY-MM
+  const buckets = {};
+  rows.forEach(r => {
+    const d = getRowDate(r);
+    if (!d) return;
+    const ym = d.slice(0, 7); // "2024-04"
+    if (!buckets[ym]) buckets[ym] = { cases: 0, scrT: 0, scrA: 0, budA: 0, budU: 0, diseases: {} };
+    const b = buckets[ym];
+    b.cases += Number(r.cases) || 0;
+    b.scrT += Number(r.screening_target) || 0;
+    b.scrA += Number(r.screening_achieved) || 0;
+    b.budA += Number(r.budget_allocated_lakhs) || 0;
+    b.budU += Number(r.budget_utilized_lakhs) || 0;
+    const dis = r.disease_type;
+    if (dis) b.diseases[dis] = (b.diseases[dis] || 0) + (Number(r.cases) || 0);
+  });
+  // Sort by key and build array
+  return Object.keys(buckets).sort().map(ym => {
+    const [y, m] = ym.split("-");
+    return { ym, label: `${MLABEL[m]} '${y.slice(2)}`, ...buckets[ym], scrPct: buckets[ym].scrT > 0 ? (buckets[ym].scrA / buckets[ym].scrT * 100) : 0, budPct: buckets[ym].budA > 0 ? (buckets[ym].budU / buckets[ym].budA * 100) : 0 };
+  });
+}
+
 // ─── CSV Template Generator ───
 const CSV_HEADERS = "district_name,month,year,disease_type,cases,screening_target,screening_achieved,budget_allocated_lakhs,budget_utilized_lakhs,hr_sanctioned,hr_in_position,drug_availability_pct";
 
@@ -313,7 +350,30 @@ function KPI({ icon: Icon, label, value, sub, color }) {
 }
 function BarChart({ data, lk, vk, color = P.accent, h = 200 }) {
   const max = Math.max(...data.map(d => d[vk]), 1);
-  return <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: h, padding: "0 4px" }}>{data.map((d, i) => <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}><div style={{ fontSize: 9, color: P.textDim, fontWeight: 600 }}>{d[vk] >= 1000 ? (d[vk] / 1000).toFixed(0) + "k" : d[vk]}</div><div style={{ width: "100%", maxWidth: 32, height: Math.max((d[vk] / max) * (h - 24), 2), background: `linear-gradient(180deg, ${color}, ${color}88)`, borderRadius: "4px 4px 2px 2px" }} /><div style={{ fontSize: 9, color: P.textDim }}>{d[lk]}</div></div>)}</div>;
+  const scrollRef = useRef(null);
+  const containerRef = useRef(null);
+  const [barW, setBarW] = useState(40);
+  useEffect(() => {
+    if (containerRef.current) {
+      const w = containerRef.current.offsetWidth;
+      setBarW(Math.floor((w - 8) / Math.min(data.length, 12)) - 3);
+    }
+  }, [data]);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+  }, [data, barW]);
+  const bw = Math.max(barW, 28);
+  return <div ref={containerRef} style={{ width: "100%" }}>
+    <div ref={scrollRef} style={{ overflowX: data.length > 12 ? "auto" : "hidden", overflowY: "hidden", width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: h, padding: "0 4px", width: data.length > 12 ? data.length * (bw + 3) + 8 : "100%" }}>
+        {data.map((d, i) => <div key={i} style={{ flex: data.length <= 12 ? 1 : "none", width: data.length > 12 ? bw : undefined, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <div style={{ fontSize: 9, color: P.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>{d[vk] >= 1000 ? (d[vk] / 1000).toFixed(0) + "k" : d[vk]}</div>
+          <div style={{ width: "70%", maxWidth: 32, height: Math.max((d[vk] / max) * (h - 28), 2), background: `linear-gradient(180deg, ${color}, ${color}88)`, borderRadius: "4px 4px 2px 2px" }} />
+          <div style={{ fontSize: 9, color: P.textDim, whiteSpace: "nowrap" }}>{d[lk]}</div>
+        </div>)}
+      </div>
+    </div>
+  </div>;
 }
 function Donut({ data, size = 160 }) {
   const total = data.reduce((s, d) => s + d.cases, 0);
@@ -458,6 +518,9 @@ function Reports({ rawRows, role }) {
   const s = fdd.find(d => d.id === sel);
 
   const fb = <FilterBar district={fDistrict} setDistrict={setFDistrict} districts={districtNames} timeRange={timeRange} setTimeRange={setTimeRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />;
+
+  // Time-series data respecting filters
+  const ts = buildTimeSeries(rawRows, { district: fDistrict, dateFrom, dateTo });
 
   const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
   const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
@@ -609,7 +672,7 @@ function Reports({ rawRows, role }) {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Disease Distribution</div><Donut data={totDis} /></div>
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Monthly Registrations</div><BarChart data={MONTHS.map((m, i) => ({ m, c: fdd.reduce((sum, d) => sum + (d.monthlyTrend[i]?.cases || 0), 0) }))} lk="m" vk="c" h={180} /></div>
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22, overflow: "hidden" }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Monthly Registrations</div><BarChart data={ts.map(t => ({ m: t.label, c: t.cases }))} lk="m" vk="c" h={180} /></div>
         </div>
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>District Performance</div>
@@ -643,6 +706,11 @@ function Reports({ rawRows, role }) {
       {tab === "screening" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Screening Coverage</div>
         {fb}
+        <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Screening Rate Trend</div>
+          <BarChart data={ts.map(t => ({ m: t.label, c: Math.round(t.scrPct * 10) / 10 }))} lk="m" vk="c" color={P.green} h={180} />
+          <div style={{ fontSize: 10, color: P.textDim, marginTop: 8, textAlign: "center" }}>Monthly screening achievement rate (%)</div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>{[...fdd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate)).map(d => { const r = parseFloat(d.screeningRate); const c = r > 65 ? P.green : r > 45 ? P.amber : P.red; return <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{d.name}</span><span style={{ fontSize: 22, fontWeight: 800, color: c }}>{d.screeningRate}%</span></div><Bar value={r} color={c} h={8} /><div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 11, color: P.textDim }}><span>Target: {(d.screeningTarget / 1000).toFixed(0)}k</span><span>Done: {(d.screeningAchieved / 1000).toFixed(0)}k</span></div></div>; })}</div>
       </div>}
 
@@ -650,13 +718,18 @@ function Reports({ rawRows, role }) {
       {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div>
         {fb}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>{DISEASES.map(dis => { const ma = MONTHS.map((m, i) => ({ m, c: fdd.reduce((sum, d) => sum + Math.round((d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0) / 12 * (0.8 + Math.sin(i * 0.7) * 0.3)), 0) })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={ma} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{DISEASES.map(dis => { const disTs = ts.map(t => ({ m: t.label, c: t.diseases[dis] || 0 })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20, overflow: "hidden" }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={disTs} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
       </div>}
 
       {/* Budget */}
       {tab === "budget" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</div>
         {fb}
+        <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Budget Utilization Trend</div>
+          <BarChart data={ts.map(t => ({ m: t.label, c: Math.round(t.budPct * 10) / 10 }))} lk="m" vk="c" color="#3B82F6" h={180} />
+          <div style={{ fontSize: 10, color: P.textDim, marginTop: 8, textAlign: "center" }}>Monthly budget utilization rate (%)</div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: "#3B82F6" }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: "#F59E0B" }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
 
