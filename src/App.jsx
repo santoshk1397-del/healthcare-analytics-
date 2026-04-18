@@ -1103,7 +1103,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
           <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
-            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <BarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} lk="label" vk="scrA"/> </div> </div> {/* Fix here for bar */}
+            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <BarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} lk="label" vk="cases"/> </div> </div> {/* Fix here for bar */}
           </div>
         </div>}
       </div>}
