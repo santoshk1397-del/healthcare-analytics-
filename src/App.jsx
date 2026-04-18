@@ -930,11 +930,11 @@ function Reports({ rawRows, role, onAskAI }) {
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
   const [fDisease, setFDisease] = useState("all");
-  const [timeRange, setTimeRange] = useState("12m");
+  const [timeRange, setTimeRange] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
-  
+
   const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
   const { from: dateFrom, to: dateTo } = getDateRange(timeRange, customFrom, customTo);
   const fdd = aggregateRows(filteredRows, { district: fDistrict, dateFrom, dateTo }, filteredRows);
@@ -949,6 +949,52 @@ function Reports({ rawRows, role, onAskAI }) {
   const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
   const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
+  const [showDQModal, setShowDQModal] = useState(false);
+
+  // ── Data Quality Scanner ──
+  const dqIssues = (() => {
+    if (!rawRows.length) return [];
+    const issues = [];
+    const allDistricts = [...new Set(rawRows.map(r => r.district_name))].sort();
+    const allMonths = [...new Set(rawRows.map(r => { const d = getRowDate(r); return d ? d.slice(0, 7) : null; }).filter(Boolean))].sort();
+    const MLABEL = { "01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun","07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec" };
+    const fmtYM = (ym) => { const [y, m] = ym.split("-"); return `${MLABEL[m] || m} ${y}`; };
+    // 1. Missing months per district
+    allDistricts.forEach(dist => {
+      const distRows = rawRows.filter(r => r.district_name === dist);
+      const distMonths = new Set(distRows.map(r => { const d = getRowDate(r); return d ? d.slice(0, 7) : null; }).filter(Boolean));
+      const missing = allMonths.filter(m => !distMonths.has(m));
+      if (missing.length > 0) issues.push({ type: "missing_month", severity: missing.length > 2 ? "critical" : "warning", district: dist, detail: `No data for ${missing.map(fmtYM).join(", ")}`, count: missing.length });
+    });
+    // 2. Zero-value disease entries per district per quarter
+    const quarters = {};
+    allMonths.forEach(ym => { const [y, m] = ym.split("-"); const qi = Math.floor((parseInt(m) - 1) / 3) + 1; const qk = `Q${qi} ${y}`; if (!quarters[qk]) quarters[qk] = []; quarters[qk].push(ym); });
+    allDistricts.forEach(dist => {
+      DISEASES.forEach(dis => {
+        Object.entries(quarters).forEach(([qLabel, qMonths]) => {
+          const qRows = rawRows.filter(r => r.district_name === dist && r.disease_type === dis && qMonths.some(ym => { const d = getRowDate(r); return d && d.startsWith(ym); }));
+          const totalCases = qRows.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+          if (qRows.length > 0 && totalCases === 0) issues.push({ type: "zero_cases", severity: "warning", district: dist, detail: `${dis} has 0 cases in ${qLabel}`, count: 1 });
+        });
+      });
+    });
+    // 3. Screening anomalies — achieved > target
+    rawRows.forEach(r => {
+      if (Number(r.screening_achieved) > Number(r.screening_target) * 1.2 && Number(r.screening_target) > 0) {
+        const d = getRowDate(r); const ym = d ? fmtYM(d.slice(0, 7)) : "unknown";
+        const existing = issues.find(i => i.type === "scr_anomaly" && i.district === r.district_name);
+        if (!existing) issues.push({ type: "scr_anomaly", severity: "warning", district: r.district_name, detail: `Screening achieved exceeds target by >20% in ${ym}`, count: 1 });
+      }
+    });
+    // 4. Missing disease types per district
+    allDistricts.forEach(dist => {
+      const distDiseases = new Set(rawRows.filter(r => r.district_name === dist).map(r => r.disease_type));
+      const missing = DISEASES.filter(d => !distDiseases.has(d));
+      if (missing.length > 0) issues.push({ type: "missing_disease", severity: "critical", district: dist, detail: `No data for: ${missing.join(", ")}`, count: missing.length });
+    });
+    // Sort: critical first, then by district
+    return issues.sort((a, b) => (a.severity === "critical" ? 0 : 1) - (b.severity === "critical" ? 0 : 1) || a.district.localeCompare(b.district));
+  })();
 
   // ── Shared export helpers ──
   const filterLabel = [fDistrict !== "all" ? fDistrict : "All Districts", TIME_RANGES.find(t => t.id === timeRange)?.label || "Custom", dateFrom || "", dateTo || ""].filter(Boolean).join(" · ");
@@ -1451,6 +1497,68 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
       </div>
     </div>
     <div className="ncd-reports-pad" style={{ flex: 1, overflow: "auto", padding: 28 }}>
+
+      {/* Data Quality Strip */}
+      {rawRows.length > 0 && <div onClick={() => setShowDQModal(true)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", marginBottom: 16, borderRadius: 8, cursor: "pointer", background: dqIssues.length === 0 ? "#f0fdf4" : dqIssues.some(i => i.severity === "critical") ? "#fef2f2" : "#fffbeb", border: `1px solid ${dqIssues.length === 0 ? "#bbf7d0" : dqIssues.some(i => i.severity === "critical") ? "#fecaca" : "#fde68a"}`, transition: "all 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.85"} onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: dqIssues.length === 0 ? P.green : dqIssues.some(i => i.severity === "critical") ? P.red : P.amber, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: dqIssues.length === 0 ? "#166534" : dqIssues.some(i => i.severity === "critical") ? "#991B1B" : "#92400e" }}>
+          {dqIssues.length === 0 ? "Data quality: All checks passed" : `Data quality: ${dqIssues.filter(i => i.severity === "critical").length} critical, ${dqIssues.filter(i => i.severity === "warning").length} warnings`}
+        </span>
+        <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>{dqIssues.length > 0 ? "View details →" : `${rawRows.length.toLocaleString()} rows · ${districtNames.length} districts`}</span>
+      </div>}
+
+      {/* Data Quality Modal */}
+      {showDQModal && <div onClick={e => { if (e.target === e.currentTarget) setShowDQModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflow: "auto" }}>
+        <div className="ncd-cmp-box" style={{ background: P.surface, borderRadius: 14, width: "100%", maxWidth: 700, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div className="ncd-cmp-head" style={{ padding: "16px 24px", borderBottom: `1px solid ${P.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>Data quality scorecard</div>
+              <div style={{ fontSize: 11, color: P.textDim, marginTop: 2 }}>{rawRows.length.toLocaleString()} rows · {districtNames.length} districts · {[...new Set(rawRows.map(r => getRowDate(r)?.slice(0, 7)).filter(Boolean))].length} months</div>
+            </div>
+            <button onClick={() => setShowDQModal(false)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }}>Close</button>
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+            {/* Summary cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 14, textAlign: "center" }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#166534" }}>{districtNames.length}</div>
+                <div style={{ fontSize: 10, color: "#166534" }}>Districts tracked</div>
+              </div>
+              <div style={{ background: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#fef2f2" : "#f0fdf4", border: `1px solid ${dqIssues.filter(i => i.severity === "critical").length > 0 ? "#fecaca" : "#bbf7d0"}`, borderRadius: 8, padding: 14, textAlign: "center" }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#991B1B" : "#166534" }}>{dqIssues.filter(i => i.severity === "critical").length}</div>
+                <div style={{ fontSize: 10, color: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#991B1B" : "#166534" }}>Critical issues</div>
+              </div>
+              <div style={{ background: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#fffbeb" : "#f0fdf4", border: `1px solid ${dqIssues.filter(i => i.severity === "warning").length > 0 ? "#fde68a" : "#bbf7d0"}`, borderRadius: 8, padding: 14, textAlign: "center" }}>
+                <div style={{ fontSize: 24, fontWeight: 800, color: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#92400e" : "#166534" }}>{dqIssues.filter(i => i.severity === "warning").length}</div>
+                <div style={{ fontSize: 10, color: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#92400e" : "#166534" }}>Warnings</div>
+              </div>
+            </div>
+            {dqIssues.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: P.green }}>
+              <I.Check /><div style={{ fontSize: 14, fontWeight: 700, marginTop: 8 }}>All data quality checks passed</div>
+              <div style={{ fontSize: 12, color: P.textDim, marginTop: 4 }}>No missing months, no zero-value entries, no anomalies detected.</div>
+            </div> : <div>
+              {/* Issue type groups */}
+              {[{ type: "missing_month", label: "Missing months", icon: "📅" }, { type: "missing_disease", label: "Missing disease data", icon: "🔬" }, { type: "zero_cases", label: "Zero-value entries", icon: "⚠" }, { type: "scr_anomaly", label: "Screening anomalies", icon: "📊" }].map(group => {
+                const items = dqIssues.filter(i => i.type === group.type);
+                if (items.length === 0) return null;
+                return <div key={group.type} style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: P.text, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 14 }}>{group.icon}</span> {group.label} <span style={{ fontSize: 10, color: P.textDim, fontWeight: 400 }}>({items.length})</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {items.slice(0, 20).map((issue, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 6, background: issue.severity === "critical" ? "#fef2f2" : "#fffbeb", borderLeft: `3px solid ${issue.severity === "critical" ? P.red : P.amber}` }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: P.text, minWidth: 100 }}>{issue.district}</span>
+                      <span style={{ fontSize: 11, color: P.textMuted, flex: 1 }}>{issue.detail}</span>
+                      <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, fontWeight: 700, background: issue.severity === "critical" ? "#fecaca" : "#fde68a", color: issue.severity === "critical" ? "#991B1B" : "#92400e" }}>{issue.severity}</span>
+                    </div>)}
+                    {items.length > 20 && <div style={{ fontSize: 11, color: P.textDim, padding: "4px 12px" }}>+ {items.length - 20} more</div>}
+                  </div>
+                </div>;
+              })}
+            </div>}
+          </div>
+        </div>
+      </div>}
 
       {/* Dashboard */}
       {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
