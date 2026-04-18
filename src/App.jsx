@@ -415,18 +415,18 @@ function AskAIBtn({ question, onAsk }) {
 // ─── Chhattisgarh Leaflet Map ───
 // District HQ coordinates (actual lat/lng)
 const CG_DISTRICTS = {
-  "Surguja":        { lat: 23.12, lng: 83.20, radius: 75 },
-  "Korba":          { lat: 22.35, lng: 82.68, radius: 60 },
-  "Bilaspur":       { lat: 22.08, lng: 82.15, radius: 65 },
-  "Janjgir-Champa": { lat: 21.82, lng: 82.57, radius: 55 },
-  "Raipur":         { lat: 21.25, lng: 81.63, radius: 70 },
-  "Mahasamund":     { lat: 21.10, lng: 82.10, radius: 55 },
-  "Durg":           { lat: 21.19, lng: 81.28, radius: 55 },
-  "Rajnandgaon":    { lat: 21.10, lng: 81.03, radius: 60 },
-  "Kawardha":       { lat: 22.02, lng: 81.23, radius: 55 },
-  "Dhamtari":       { lat: 20.71, lng: 81.55, radius: 50 },
-  "Kanker":         { lat: 20.27, lng: 81.49, radius: 55 },
-  "Bastar":         { lat: 19.08, lng: 82.02, radius: 85 },
+  "Surguja":        { lat: 23.12, lng: 83.20, radius: 52 },
+  "Korba":          { lat: 22.35, lng: 82.68, radius: 42 },
+  "Bilaspur":       { lat: 22.08, lng: 82.15, radius: 45 },
+  "Janjgir-Champa": { lat: 21.82, lng: 82.57, radius: 38 },
+  "Raipur":         { lat: 21.25, lng: 81.63, radius: 49 },
+  "Mahasamund":     { lat: 21.10, lng: 82.10, radius: 38 },
+  "Durg":           { lat: 21.19, lng: 81.28, radius: 38 },
+  "Rajnandgaon":    { lat: 21.10, lng: 81.03, radius: 42 },
+  "Kawardha":       { lat: 22.02, lng: 81.23, radius: 38 },
+  "Dhamtari":       { lat: 20.71, lng: 81.55, radius: 35 },
+  "Kanker":         { lat: 20.27, lng: 81.49, radius: 38 },
+  "Bastar":         { lat: 19.08, lng: 82.02, radius: 60 },
 };
 const CG_CENTER = [21.1, 81.85];
 
