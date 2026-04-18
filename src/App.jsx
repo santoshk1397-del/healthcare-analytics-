@@ -447,6 +447,7 @@ function StackedBarChart({ data, height = 200 }) {
 
   // ✅ GROUP SAFELY
   const map = {};
+  const [hover, setHover] = useState(null);
 
   for (let i = 0; i < data.length; i++) {
     const d = data[i];
@@ -487,6 +488,7 @@ function StackedBarChart({ data, height = 200 }) {
         style={{
           display: "flex",
           alignItems: "flex-end",
+          position: "relative",
           gap: 6,
           height,
           minWidth: grouped.length * 60
@@ -519,12 +521,39 @@ function StackedBarChart({ data, height = 200 }) {
                 background: "#E5E7EB"
               }}
             >
+              {hover && hover.month === d.label && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: "100%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    background: P.bg,
+                    border: `1px solid ${P.border}`,
+                    borderRadius: 6,
+                    padding: "6px 10px",
+                    fontSize: 11,
+                    color: P.text,
+                    whiteSpace: "nowrap",
+                    zIndex: 20,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                  }}
+                >
+                  <div style={{ fontWeight: 600 }}>{hover.month}</div>
+                  <div>
+                    {hover.disease}: <b>{hover.value}</b>
+                  </div>
+                </div>
+              )}
               {Object.entries(d.diseases).map(([dis, val], idx) => (
                 <div
                   key={idx}
+                  onMouseEnter={() => setHover({ month: d.label, disease: dis, value: val })}
+                  onMouseLeave={() => setHover(null)}
                   style={{
                     height: `${(val / max) * (height - 30)}px`,
-                    background: DC?.[dis] || "#C2410C"
+                    background: DC?.[dis] || "#C2410C",
+                    cursor: "pointer"
                   }}
                 />
               ))}
