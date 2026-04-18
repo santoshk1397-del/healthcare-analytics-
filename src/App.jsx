@@ -434,32 +434,48 @@ function Donut({ data, size = 160 }) {
   const r = size / 2 - 12, cx = size / 2, cy = size / 2;
   return <div style={{ display: "flex", alignItems: "center", gap: 20 }}><svg width={size} height={size}>{segs.map((seg, i) => { const sa = seg.s * 2 * Math.PI - Math.PI / 2, ea = seg.e * 2 * Math.PI - Math.PI / 2; return <path key={i} d={`M${cx},${cy} L${cx + r * Math.cos(sa)},${cy + r * Math.sin(sa)} A${r},${r} 0 ${ea - sa > Math.PI ? 1 : 0} 1 ${cx + r * Math.cos(ea)},${cy + r * Math.sin(ea)} Z`} fill={DC[seg.disease] || P.accent} opacity="0.85" stroke={P.surface} strokeWidth="2" />; })}<circle cx={cx} cy={cy} r={r * 0.55} fill={P.surface} /><text x={cx} y={cy - 4} textAnchor="middle" fill={P.text} fontSize="18" fontWeight="700">{(total / 1000).toFixed(0)}k</text><text x={cx} y={cy + 12} textAnchor="middle" fill={P.textDim} fontSize="9">TOTAL</text></svg><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{data.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}><div style={{ width: 8, height: 8, borderRadius: 2, background: DC[d.disease] || P.accent }} /><span style={{ color: P.textMuted, minWidth: 90 }}>{d.disease}</span><span style={{ color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div></div>;
 }
-function StackedBarChart({ data, height = 200 }) {
+function StackedBarChart({ data = [], height = 200 }) {
   const scrollRef = useRef(null);
   const containerRef = useRef(null);
   const [barW, setBarW] = useState(40);
 
-  // 👉 group data by month
+  // ✅ SAFE GROUPING (no crash)
   const grouped = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0) return [];
+
     const map = {};
 
     data.forEach(d => {
+      if (!d || !d.label) return;
+
       const key = d.label;
 
       if (!map[key]) {
         map[key] = { label: key, diseases: {}, total: 0 };
       }
 
-      map[key].diseases[d.disease] =
-        (map[key].diseases[d.disease] || 0) + Number(d.cases || 0);
+      const disease = d.disease || "Others";
+      const val = Number(d.cases || 0);
 
-      map[key].total += Number(d.cases || 0);
+      map[key].diseases[disease] =
+        (map[key].diseases[disease] || 0) + val;
+
+      map[key].total += val;
     });
 
     return Object.values(map);
   }, [data]);
 
-  // 👉 dynamic width
+  // ✅ EARLY EXIT (prevents UI crash)
+  if (!grouped.length) {
+    return (
+      <div style={{ padding: 20, textAlign: "center", color: P.textDim }}>
+        No data available
+      </div>
+    );
+  }
+
+  // width calc
   useEffect(() => {
     if (containerRef.current) {
       const w = containerRef.current.offsetWidth;
@@ -467,14 +483,13 @@ function StackedBarChart({ data, height = 200 }) {
     }
   }, [grouped]);
 
-  // 👉 auto scroll
+  // auto scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
     }
   }, [grouped, barW]);
 
-  // 👉 max for scaling
   const max = Math.max(...grouped.map(d => d.total), 1);
   const bw = Math.max(barW, 28);
 
@@ -530,17 +545,15 @@ function StackedBarChart({ data, height = 200 }) {
                   background: P.surfaceAlt
                 }}
               >
-                {Object.entries(d.diseases)
-                  .sort((a, b) => b[1] - a[1]) // optional
-                  .map(([dis, val], idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        height: `${(val / max) * (height - 28)}px`,
-                        background: DC[dis] || P.accent
-                      }}
-                    />
-                  ))}
+                {Object.entries(d.diseases || {}).map(([dis, val], idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      height: `${(val / max) * (height - 28)}px`,
+                      background: DC[dis] || P.accent
+                    }}
+                  />
+                ))}
               </div>
 
               {/* label */}
