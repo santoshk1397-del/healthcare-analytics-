@@ -1066,11 +1066,11 @@ function Reports({ rawRows, role, onAskAI }) {
       const drugDelta = currDrug - prevDrug;
       if (drugDelta < -15) results.push({ district: dist, metric: "Drugs", direction: "down", pct: drugDelta.toFixed(0), from: prevDrug.toFixed(0) + "%", to: currDrug.toFixed(0) + "%", period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: drugDelta < -25 ? "critical" : "warning" });
 
-      // Per-disease spikes
+      // Per-disease spikes (only if absolute diff > 20)
       DISEASES.forEach(dis => {
         const currD = curr.filter(r => r.disease_type === dis).reduce((s, r) => s + (Number(r.cases) || 0), 0);
         const prevD = prev.filter(r => r.disease_type === dis).reduce((s, r) => s + (Number(r.cases) || 0), 0);
-        if (prevD > 5) {
+        if (prevD > 5 && Math.abs(currD - prevD) > 20) {
           const pct = ((currD - prevD) / prevD) * 100;
           if (pct > 35) results.push({ district: dist, metric: dis, direction: "up", pct: pct.toFixed(0), from: prevD, to: currD, period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: pct > 50 ? "critical" : "warning" });
         }
