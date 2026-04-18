@@ -438,6 +438,7 @@ function Donut({ data, size = 160 }) {
 function StackedBarChart({ data, height = 200 }) {
   const [hover, setHover] = useState(null);
   const scrollRef = useRef(null);
+  const contentRef = useRef(null);
 
   if (!Array.isArray(data) || data.length === 0) return null;
 
@@ -465,30 +466,22 @@ function StackedBarChart({ data, height = 200 }) {
 
   const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
-  // ✅ MOBILE-PROOF AUTO SCROLL
+  // ✅ REAL FIX — scroll using actual content width
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    const scrollEl = scrollRef.current;
+    const contentEl = contentRef.current;
+    if (!scrollEl || !contentEl) return;
 
-    let attempts = 0;
-
-    const forceScroll = () => {
-      if (!el) return;
-
-      // force reflow (mobile fix)
-      el.style.transform = "translateZ(0)";
-
-      // scroll to end
-      el.scrollLeft = el.scrollWidth;
-
-      attempts++;
-
-      if (attempts < 10) {
-        setTimeout(forceScroll, 50);
-      }
+    const scrollToEnd = () => {
+      // use content width, not scrollWidth guess
+      scrollEl.scrollLeft = contentEl.offsetWidth;
     };
 
-    setTimeout(forceScroll, 100);
+    // run after layout
+    requestAnimationFrame(scrollToEnd);
+    setTimeout(scrollToEnd, 100);
+    setTimeout(scrollToEnd, 300); // mobile stabilization
+
   }, [grouped.length]);
 
   return (
@@ -497,11 +490,11 @@ function StackedBarChart({ data, height = 200 }) {
       style={{
         overflowX: "auto",
         overflowY: "visible",
-        WebkitOverflowScrolling: "touch",
-        scrollBehavior: "auto"
+        WebkitOverflowScrolling: "touch"
       }}
     >
       <div
+        ref={contentRef}
         style={{
           display: "flex",
           alignItems: "flex-end",
