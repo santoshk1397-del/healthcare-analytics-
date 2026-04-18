@@ -889,14 +889,14 @@ function Alerts({ dd, role }) {
   districts.forEach(d => {
     const scr = parseFloat(d.screeningRate), drug = parseFloat(d.drugAvailability), bud = d.budgetUtilized * 100, hr = d.hrFilled * 100;
     // Critical: bottom 10% absolute thresholds
-    if (scr < 30) alerts.push({ district: d.name, type: "critical", msg: `Screening critically low at ${scr}% (state avg: ${avgScr.toFixed(0)}%)`, metric: "Screening", value: scr });
-    else if (scr < 38 && scr < avgScr - 15) alerts.push({ district: d.name, type: "warning", msg: `Screening at ${scr}%, well below state avg of ${avgScr.toFixed(0)}%`, metric: "Screening", value: scr });
-    if (drug < 30) alerts.push({ district: d.name, type: "critical", msg: `Drug availability critically low at ${drug}%`, metric: "Drugs", value: drug });
-    else if (drug < 40 && drug < avgDrug - 15) alerts.push({ district: d.name, type: "warning", msg: `Drug availability low at ${drug}%, below state avg ${avgDrug.toFixed(0)}%`, metric: "Drugs", value: drug });
-    if (bud < 25) alerts.push({ district: d.name, type: "critical", msg: `Budget utilization critically low at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
-    else if (bud < 35) alerts.push({ district: d.name, type: "warning", msg: `Budget underutilized at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
-    if (hr < 35) alerts.push({ district: d.name, type: "critical", msg: `Severe staffing gap: only ${hr.toFixed(0)}% positions filled`, metric: "HR", value: hr });
-    else if (hr < 42) alerts.push({ district: d.name, type: "warning", msg: `Staffing low at ${hr.toFixed(0)}% fill rate`, metric: "HR", value: hr });
+    if (scr < 25) alerts.push({ district: d.name, type: "critical", msg: `Screening critically low at ${scr}% (state avg: ${avgScr.toFixed(0)}%)`, metric: "Screening", value: scr });
+    else if (scr < 33 && scr < avgScr - 15) alerts.push({ district: d.name, type: "warning", msg: `Screening at ${scr}%, well below state avg of ${avgScr.toFixed(0)}%`, metric: "Screening", value: scr });
+    if (drug < 25) alerts.push({ district: d.name, type: "critical", msg: `Drug availability critically low at ${drug}%`, metric: "Drugs", value: drug });
+    else if (drug < 35 && drug < avgDrug - 15) alerts.push({ district: d.name, type: "warning", msg: `Drug availability low at ${drug}%, below state avg ${avgDrug.toFixed(0)}%`, metric: "Drugs", value: drug });
+    if (bud < 20) alerts.push({ district: d.name, type: "critical", msg: `Budget utilization critically low at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
+    else if (bud < 30) alerts.push({ district: d.name, type: "warning", msg: `Budget underutilized at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
+    if (hr < 30) alerts.push({ district: d.name, type: "critical", msg: `Severe staffing gap: only ${hr.toFixed(0)}% positions filled`, metric: "HR", value: hr });
+    else if (hr < 37) alerts.push({ district: d.name, type: "warning", msg: `Staffing low at ${hr.toFixed(0)}% fill rate`, metric: "HR", value: hr });
     // Disease trends: only flag extreme spikes
     d.diseaseBreakdown.forEach(db => {
       if (db.trend > 60) alerts.push({ district: d.name, type: "critical", msg: `${db.disease} cases surging: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
