@@ -412,29 +412,29 @@ function AskAIBtn({ question, onAsk }) {
   return <button onClick={() => onAsk(question)} title="Ask AI about this" style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: P.textMuted, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; e.currentTarget.style.color = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; e.currentTarget.style.color = P.textMuted; }}><I.Sparkle /> Ask AI</button>;
 }
 
-// ─── Chhattisgarh District Map (simplified SVG) ───
+// ─── Chhattisgarh District Map (improved geography) ───
 const CG_PATHS = {
-  "Surguja": "M140,20 L200,15 L220,50 L210,90 L170,100 L130,80 Z",
-  "Korba": "M130,80 L170,100 L190,130 L160,150 L120,140 L110,100 Z",
-  "Bilaspur": "M170,100 L210,90 L240,110 L230,150 L190,130 Z",
-  "Janjgir-Champa": "M230,150 L270,130 L290,160 L260,180 L230,170 Z",
-  "Raipur": "M160,150 L190,130 L230,150 L230,170 L220,200 L180,210 L150,190 Z",
-  "Mahasamund": "M230,170 L260,180 L270,210 L240,220 L220,200 Z",
-  "Durg": "M100,150 L160,150 L150,190 L130,200 L90,180 Z",
-  "Rajnandgaon": "M60,160 L100,150 L90,180 L100,220 L70,230 L50,200 Z",
-  "Kawardha": "M60,120 L110,100 L120,140 L100,150 L60,160 Z",
-  "Dhamtari": "M150,190 L180,210 L170,250 L140,260 L120,230 L130,200 Z",
-  "Kanker": "M100,220 L130,200 L120,230 L140,260 L120,290 L80,280 L70,250 Z",
-  "Bastar": "M120,290 L140,260 L170,250 L200,270 L210,320 L180,350 L130,340 L100,310 Z",
+  "Surguja":        "M155,10 L185,8 L210,15 L230,30 L235,55 L225,80 L210,90 L185,95 L165,100 L145,90 L130,70 L125,45 L135,25 Z",
+  "Korba":          "M130,70 L145,90 L165,100 L185,95 L195,115 L185,135 L165,145 L140,140 L120,125 L115,100 Z",
+  "Bilaspur":       "M185,95 L210,90 L235,95 L245,115 L240,140 L220,150 L195,140 L185,135 L195,115 Z",
+  "Janjgir-Champa": "M220,150 L240,140 L265,135 L280,145 L285,170 L270,185 L245,185 L230,175 Z",
+  "Raipur":         "M165,145 L185,135 L195,140 L220,150 L230,175 L225,200 L210,215 L185,220 L165,210 L150,195 L155,165 Z",
+  "Mahasamund":     "M230,175 L245,185 L270,185 L280,200 L275,220 L255,230 L235,225 L225,200 L210,215 Z",
+  "Durg":           "M95,150 L120,140 L140,140 L165,145 L155,165 L150,195 L130,200 L105,190 L90,175 Z",
+  "Rajnandgaon":    "M55,145 L75,130 L95,135 L95,150 L90,175 L105,190 L100,215 L80,230 L55,220 L45,195 L50,165 Z",
+  "Kawardha":       "M60,100 L85,90 L115,100 L120,125 L95,135 L75,130 L55,145 L50,120 Z",
+  "Dhamtari":       "M150,195 L165,210 L185,220 L180,245 L165,260 L140,265 L125,245 L130,220 L130,200 Z",
+  "Kanker":         "M80,230 L100,215 L130,200 L130,220 L125,245 L140,265 L130,290 L110,300 L85,290 L70,265 Z",
+  "Bastar":         "M110,300 L130,290 L140,265 L165,260 L180,245 L200,255 L215,280 L220,310 L210,340 L190,365 L165,370 L140,360 L120,340 L105,320 Z",
 };
 const CG_CENTERS = {
-  "Surguja": [170, 55], "Korba": [150, 115], "Bilaspur": [205, 120], "Janjgir-Champa": [255, 160],
-  "Raipur": [195, 175], "Mahasamund": [245, 195], "Durg": [130, 170], "Rajnandgaon": [72, 190],
-  "Kawardha": [85, 135], "Dhamtari": [150, 230], "Kanker": [105, 260], "Bastar": [160, 305],
+  "Surguja": [175, 52], "Korba": [155, 112], "Bilaspur": [215, 117], "Janjgir-Champa": [253, 163],
+  "Raipur": [192, 180], "Mahasamund": [250, 205], "Durg": [130, 170], "Rajnandgaon": [72, 180],
+  "Kawardha": [85, 112], "Dhamtari": [155, 232], "Kanker": [105, 262], "Bastar": [165, 315],
 };
 
 function GeoMap({ dd, metric = "screeningRate", onAsk }) {
-  const [hover, setHover] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [mapMetric, setMapMetric] = useState(metric);
   const getVal = (d) => {
     if (mapMetric === "screeningRate") return parseFloat(d.screeningRate);
@@ -461,46 +461,57 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     }
     return val > 65 ? "#f0fdf4" : val > 45 ? "#fef3c7" : "#fee2e2";
   };
-  const hData = hover ? dd.find(d => d.name === hover) : null;
+  const sData = selected ? dd.find(d => d.name === selected) : null;
   return <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <I.Map />
-        <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>District map</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chhattisgarh — district map</span>
       </div>
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+      <div className="ncd-filter-pills" style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
         {Object.keys(metricLabel).map(k => <button key={k} onClick={() => setMapMetric(k)} style={{ padding: "4px 10px", borderRadius: 6, border: mapMetric === k ? `1px solid ${P.accent}` : `1px solid ${P.border}`, background: mapMetric === k ? P.accentGlow : "none", color: mapMetric === k ? P.accent : P.textDim, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{metricLabel[k]}</button>)}
       </div>
     </div>
-    <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
-      <svg viewBox="0 0 310 370" style={{ width: "100%", height: "auto" }}>
+    <div style={{ position: "relative" }}>
+      <svg viewBox="30 0 280 380" style={{ width: "100%", maxWidth: 420, display: "block", margin: "0 auto" }}>
         {dd.map(d => {
           const path = CG_PATHS[d.name];
           if (!path) return null;
           const val = getVal(d);
           const center = CG_CENTERS[d.name];
-          return <g key={d.name} onMouseEnter={() => setHover(d.name)} onMouseLeave={() => setHover(null)} style={{ cursor: "pointer" }}>
-            <path d={path} fill={getBg(val)} stroke={hover === d.name ? P.accent : getColor(val)} strokeWidth={hover === d.name ? 2.5 : 1.2} />
-            {center && <><text x={center[0]} y={center[1] - 5} textAnchor="middle" fontSize="8" fill={P.text} fontWeight="600">{d.name}</text>
-            <text x={center[0]} y={center[1] + 7} textAnchor="middle" fontSize="9" fill={getColor(val)} fontWeight="700">{mapMetric === "totalCases" ? val.toLocaleString() : val.toFixed(1) + "%"}</text></>}
+          const isSel = selected === d.name;
+          return <g key={d.name} onClick={() => setSelected(isSel ? null : d.name)} style={{ cursor: "pointer" }}>
+            <path d={path} fill={getBg(val)} stroke={isSel ? P.accent : getColor(val)} strokeWidth={isSel ? 2.5 : 1} />
+            {center && <>
+              <text x={center[0]} y={center[1] - 6} textAnchor="middle" fontSize="7.5" fill={P.text} fontWeight="600" style={{ pointerEvents: "none" }}>{d.name}</text>
+              <text x={center[0]} y={center[1] + 5} textAnchor="middle" fontSize="8.5" fill={getColor(val)} fontWeight="700" style={{ pointerEvents: "none" }}>{mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%"}</text>
+            </>}
           </g>;
         })}
       </svg>
-      <div>
-        {hData ? <div style={{ background: P.bg, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: P.text, marginBottom: 2 }}>{hData.name}</div>
-          <div style={{ fontSize: 11, color: P.textDim, marginBottom: 12 }}>{hData.zone} zone · Pop {(hData.population / 1e5).toFixed(1)}L</div>
-          {[["Screening", hData.screeningRate + "%"], ["Drugs", hData.drugAvailability + "%"], ["Budget", (hData.budgetUtilized * 100).toFixed(1) + "%"], ["HR", (hData.hrFilled * 100).toFixed(0) + "%"], ["Cases", hData.totalCases.toLocaleString()]].map(([l, v]) => <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}><span style={{ color: P.textDim }}>{l}</span><span style={{ fontWeight: 600, color: P.text }}>{v}</span></div>)}
-          {onAsk && <div style={{ marginTop: 10 }}><AskAIBtn question={`Analyze ${hData.name} district performance — screening ${hData.screeningRate}%, drugs ${hData.drugAvailability}%, budget ${(hData.budgetUtilized*100).toFixed(0)}%. What are the key issues and recommended interventions?`} onAsk={onAsk} /></div>}
-        </div> : <div style={{ background: P.bg, borderRadius: 10, padding: 20, textAlign: "center", color: P.textDim, fontSize: 12 }}>Hover over a district on the map to see details</div>}
-        {/* Legend */}
-        <div style={{ marginTop: 12, display: "flex", gap: 12, fontSize: 10, color: P.textDim }}>
-          <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#f0fdf4", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good</span>
-          <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef3c7", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning</span>
-          <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fee2e2", border: "1px solid #991B1B", marginRight: 4, verticalAlign: "middle" }} />Critical</span>
+      {/* Detail card — bottom right overlay */}
+      {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 0, right: 0, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{sData.name}</div>
+          <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: P.textDim, fontSize: 14 }}>✕</button>
         </div>
-      </div>
+        <div style={{ fontSize: 10, color: P.textDim, marginBottom: 10 }}>{sData.zone} zone · Pop {(sData.population / 1e5).toFixed(1)}L</div>
+        {[["Screening", sData.screeningRate + "%", parseFloat(sData.screeningRate) > 65 ? P.green : parseFloat(sData.screeningRate) > 45 ? P.amber : P.red],
+          ["Drugs", sData.drugAvailability + "%", parseFloat(sData.drugAvailability) > 60 ? P.green : parseFloat(sData.drugAvailability) > 40 ? P.amber : P.red],
+          ["Budget", (sData.budgetUtilized * 100).toFixed(1) + "%", sData.budgetUtilized > 0.65 ? P.green : sData.budgetUtilized > 0.45 ? P.amber : P.red],
+          ["HR", (sData.hrFilled * 100).toFixed(0) + "%", sData.hrFilled > 0.65 ? P.green : sData.hrFilled > 0.5 ? P.amber : P.red],
+          ["Cases", sData.totalCases.toLocaleString(), P.text]
+        ].map(([l, v, c]) => <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 11 }}><span style={{ color: P.textDim }}>{l}</span><span style={{ fontWeight: 600, color: c }}>{v}</span></div>)}
+        {onAsk && <div style={{ marginTop: 10 }}><AskAIBtn question={`Analyze ${sData.name} district — screening ${sData.screeningRate}%, drugs ${sData.drugAvailability}%, budget ${(sData.budgetUtilized*100).toFixed(0)}%, HR ${(sData.hrFilled*100).toFixed(0)}%. What are the key issues and recommended interventions?`} onAsk={onAsk} /></div>}
+      </div>}
     </div>
+    {/* Legend */}
+    <div style={{ display: "flex", gap: 16, fontSize: 10, color: P.textDim, marginTop: 12, justifyContent: "center" }}>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#f0fdf4", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good (&gt;65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef3c7", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning (45-65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fee2e2", border: "1px solid #991B1B", marginRight: 4, verticalAlign: "middle" }} />Critical (&lt;45%)</span>
+    </div>
+    <div style={{ fontSize: 9, color: P.textDim, textAlign: "center", marginTop: 6 }}>Click a district to view details · Tap again to close</div>
   </div>;
 }
 
@@ -2341,6 +2352,7 @@ export default function App() {
   .ncd-bm-val{font-size:22px!important}
   .ncd-bm-card{padding:14px!important}
   .ncd-bm-disease{grid-template-columns:1fr!important}
+  .ncd-map-detail{position:static!important;width:100%!important;margin-top:12px!important}
   .ncd-filter-bar{flex-direction:column!important;align-items:stretch!important;gap:8px!important}
   .ncd-filter-pills{flex-wrap:wrap!important}
   .ncd-filter-pill{padding:4px 8px!important;font-size:10px!important}
