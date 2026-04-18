@@ -358,72 +358,6 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
   }));
 }
 
-function detectDataIssues(rows) {
-  if (!rows || rows.length === 0) return { issues: [], score: 0 };
-
-  const issues = [];
-  const totalChecks = [];
-  let passedChecks = 0;
-
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-  const districts = [...new Set(rows.map(r => r.district_name))];
-  const diseases = [...new Set(rows.map(r => r.disease_type))];
-
-  // 1️⃣ Missing month data
-  districts.forEach(d => {
-    const districtRows = rows.filter(r => r.district_name === d);
-
-    months.forEach(m => {
-      const exists = districtRows.some(r => r.month === m);
-      totalChecks.push(1);
-
-      if (!exists) {
-        issues.push(`${d} has no data for ${m}`);
-      } else {
-        passedChecks++;
-      }
-    });
-  });
-
-  // 2️⃣ Disease zero-data check (quarter level)
-  districts.forEach(d => {
-    diseases.forEach(dis => {
-      const subset = rows.filter(r => r.district_name === d && r.disease_type === dis);
-
-      if (subset.length === 0) return;
-
-      const byQuarter = {
-        Q1: ["Apr","May","Jun"],
-        Q2: ["Jul","Aug","Sep"],
-        Q3: ["Oct","Nov","Dec"],
-        Q4: ["Jan","Feb","Mar"]
-      };
-
-      Object.entries(byQuarter).forEach(([q, ms]) => {
-        const qRows = subset.filter(r => ms.includes(r.month));
-        if (qRows.length === 0) return;
-
-        totalChecks.push(1);
-
-        const allZero = qRows.every(r => Number(r.cases || 0) === 0);
-
-        if (allZero) {
-          issues.push(`${d} ${dis} entries are all zero for ${q}`);
-        } else {
-          passedChecks++;
-        }
-      });
-    });
-  });
-
-  const score = totalChecks.length
-    ? Math.round((passedChecks / totalChecks.length) * 100)
-    : 100;
-
-  return { issues, score };
-}
-
 // ─── Palette ───
 const P = {
   // 🧱 BACKGROUNDS
@@ -1000,7 +934,7 @@ function Reports({ rawRows, role, onAskAI }) {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
-  const { issues, score } = detectDataIssues(rows);
+  
   const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
   const { from: dateFrom, to: dateTo } = getDateRange(timeRange, customFrom, customTo);
   const fdd = aggregateRows(filteredRows, { district: fDistrict, dateFrom, dateTo }, filteredRows);
