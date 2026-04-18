@@ -231,6 +231,31 @@ function computeTotals(dd) {
   return { totalPopulation: dd.reduce((s, d) => s + (d.population || 0), 0), totalCases: dd.reduce((s, d) => s + d.totalCases, 0), avgScreening: (dd.reduce((s, d) => s + parseFloat(d.screeningRate), 0) / n).toFixed(1), avgBudgetUtil: (dd.reduce((s, d) => s + d.budgetUtilized, 0) / n * 100).toFixed(1), totalBudget: dd.reduce((s, d) => s + d.budgetAllocated, 0), avgDrugAvail: (dd.reduce((s, d) => s + parseFloat(d.drugAvailability), 0) / n).toFixed(1), avgHrFill: (dd.reduce((s, d) => s + d.hrFilled, 0) / n * 100).toFixed(1) };
 }
 
+//date format fix for charts
+function formatMonth(dateStr) {
+  const d = new Date(dateStr);
+  const month = d.toLocaleString("en-IN", { month: "short" }); // Apr
+  const year = String(d.getFullYear()).slice(-2); // 26
+  return `${month}' ${year}`;
+}
+
+// ─── Diease Monthly Data ─── 
+function getDiseaseMonthlyData(rows, district, dateFrom, dateTo) {
+  return rows
+    .filter(r =>
+      (!district || r.district_name === district) &&
+      (!dateFrom || r.month_date >= dateFrom) &&
+      (!dateTo || r.month_date <= dateTo)
+    )
+    .map(r => ({
+      label: formatMonth(r.month_date),
+      rawDate: r.month_date,
+      disease: r.disease_type,
+      cases: Number(r.cases || 0)
+    }))
+    .sort((a, b) => new Date(a.rawDate) - new Date(b.rawDate));
+}
+
 // ─── Aggregate raw rows with filters ───
 function aggregateRows(rows, { district = "all", month = "all", year = "all", dateFrom = null, dateTo = null } = {}, allRows = null) {
   const fullSet = allRows || rows;
@@ -408,6 +433,166 @@ function Donut({ data, size = 160 }) {
   let cum = 0; const segs = data.map(d => { const s = cum; cum += d.cases / total; return { ...d, s, e: cum }; });
   const r = size / 2 - 12, cx = size / 2, cy = size / 2;
   return <div style={{ display: "flex", alignItems: "center", gap: 20 }}><svg width={size} height={size}>{segs.map((seg, i) => { const sa = seg.s * 2 * Math.PI - Math.PI / 2, ea = seg.e * 2 * Math.PI - Math.PI / 2; return <path key={i} d={`M${cx},${cy} L${cx + r * Math.cos(sa)},${cy + r * Math.sin(sa)} A${r},${r} 0 ${ea - sa > Math.PI ? 1 : 0} 1 ${cx + r * Math.cos(ea)},${cy + r * Math.sin(ea)} Z`} fill={DC[seg.disease] || P.accent} opacity="0.85" stroke={P.surface} strokeWidth="2" />; })}<circle cx={cx} cy={cy} r={r * 0.55} fill={P.surface} /><text x={cx} y={cy - 4} textAnchor="middle" fill={P.text} fontSize="18" fontWeight="700">{(total / 1000).toFixed(0)}k</text><text x={cx} y={cy + 12} textAnchor="middle" fill={P.textDim} fontSize="9">TOTAL</text></svg><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{data.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}><div style={{ width: 8, height: 8, borderRadius: 2, background: DC[d.disease] || P.accent }} /><span style={{ color: P.textMuted, minWidth: 90 }}>{d.disease}</span><span style={{ color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div></div>;
+}
+
+function StackedBarChart({ data, height = 200 }) {
+  const [hover, setHover] = useState(null);
+  const scrollRef = useRef(null);
+  const lastBarRef = useRef(null);
+
+  if (!Array.isArray(data) || data.length === 0) return null;
+
+  // group safely
+  const map = {};
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    if (!d || !d.label) continue;
+
+    if (!map[d.label]) {
+      map[d.label] = { label: d.label, diseases: {}, total: 0 };
+    }
+
+    const disease = d.disease || "Others";
+    const val = Number(d.cases || 0);
+
+    map[d.label].diseases[disease] =
+      (map[d.label].diseases[disease] || 0) + val;
+
+    map[d.label].total += val;
+  }
+
+  const grouped = Object.values(map);
+  if (!grouped.length) return null;
+
+  const max = Math.max(...grouped.map(d => d.total || 0), 1);
+
+  // ✅ RELIABLE SCROLL — anchor to last bar
+  useEffect(() => {
+    if (lastBarRef.current) {
+      lastBarRef.current.scrollIntoView({
+        behavior: "auto",
+        inline: "end",
+        block: "nearest"
+      });
+    }
+  }, [grouped.length]);
+
+  return (
+    <div
+      ref={scrollRef}
+      style={{
+        overflowX: "auto",
+        overflowY: "visible",
+        WebkitOverflowScrolling: "touch"
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 8,
+          height,
+          minWidth: grouped.length * 60
+        }}
+      >
+        {grouped.map((d, i) => {
+          const isLast = i === grouped.length - 1;
+
+          return (
+            <div
+              key={i}
+              ref={isLast ? lastBarRef : null} // 👈 anchor here
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                width: 50
+              }}
+            >
+              {/* total */}
+              <div style={{ fontSize: 10, color: "#6B7280" }}>
+                {d.total || 0}
+              </div>
+
+              {/* stacked bar */}
+              <div
+                style={{
+                  width: 28,
+                  height: height - 30,
+                  display: "flex",
+                  flexDirection: "column-reverse",
+                  borderRadius: 4,
+                  overflow: "hidden",
+                  background: "#E5E7EB"
+                }}
+              >
+                {Object.entries(d.diseases || {}).map(([dis, val], idx) => {
+                  const h = (val / max) * (height - 30);
+
+                  return (
+                    <div
+                      key={idx}
+                      onMouseEnter={(e) =>
+                        setHover({
+                          x: e.clientX,
+                          y: e.clientY,
+                          month: d.label,
+                          disease: dis,
+                          value: val
+                        })
+                      }
+                      onMouseMove={(e) =>
+                        setHover(prev =>
+                          prev ? { ...prev, x: e.clientX, y: e.clientY } : null
+                        )
+                      }
+                      onMouseLeave={() => setHover(null)}
+                      style={{
+                        height: isFinite(h) ? `${h}px` : "0px",
+                        background: (DC && DC[dis]) || "#C2410C",
+                        cursor: "pointer"
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* label */}
+              <div style={{ fontSize: 10, marginTop: 4 }}>
+                {d.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* tooltip */}
+      {hover && (
+        <div
+          style={{
+            position: "fixed",
+            top: hover.y - 50,
+            left: hover.x,
+            transform: "translateX(-50%)",
+            background: "#fff",
+            border: "1px solid #E5E7EB",
+            borderRadius: 6,
+            padding: "6px 10px",
+            fontSize: 11,
+            whiteSpace: "nowrap",
+            zIndex: 9999,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            pointerEvents: "none"
+          }}
+        >
+          <div style={{ fontWeight: 600 }}>{hover.month}</div>
+          <div>
+            {hover.disease}: <b>{hover.value}</b>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Filter Bar ───
@@ -1087,7 +1272,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
           <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
-            <BarChart data={s.monthlyTrend} lk="month" vk="cases" color={P.accent} h={160} />
+            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}>Disease Split<StackedBarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} /> </div> </div> {/* Fix here for bar */}
           </div>
         </div>}
       </div>}
@@ -1642,6 +1827,7 @@ function HealthWorker() {
   const dName = (id) => DISTRICTS_META.find(d => d.id === id)?.name || "—";
   const pAge = (p) => p?.dob ? calculateAge(p.dob) : null;
   const obsFor = (sid) => observations.filter(o => o.screening_id === sid);
+  
 
   // ── API helper — matches your working upload.js pattern ──
   const api = async (url, body) => {
