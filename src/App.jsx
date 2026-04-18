@@ -427,7 +427,7 @@ const CG_GEO = {
   "Kanker":         [[19.95,80.82],[20.05,80.95],[20.18,81.08],[20.25,81.25],[20.20,81.45],[20.10,81.6],[19.95,81.75],[19.75,81.65],[19.55,81.45],[19.45,81.2],[19.50,81.0],[19.65,80.88],[19.80,80.82]],
   "Bastar":         [[19.45,81.2],[19.60,81.4],[19.75,81.6],[19.90,81.8],[19.95,82.0],[19.85,82.2],[19.65,82.4],[19.40,82.45],[19.15,82.35],[18.90,82.15],[18.70,81.9],[18.50,81.65],[18.45,81.4],[18.55,81.2],[18.75,81.05],[19.00,81.0],[19.22,81.05]],
 };
-const CG_CENTER = [20.8, 81.8];
+const CG_CENTER = [21.0, 81.8];
 
 function GeoMap({ dd, metric = "screeningRate", onAsk }) {
   const mapRef = useRef(null);
@@ -467,7 +467,7 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     if (!mapRef.current || mapInst.current) return;
     const initMap = () => {
       if (!window.L) return setTimeout(initMap, 150);
-      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 7.5);
+      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 8);
       window.L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 12, minZoom: 6, opacity: 0.7, subdomains: "abcd" }).addTo(m);
       window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
       mapInst.current = m;
