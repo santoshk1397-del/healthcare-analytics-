@@ -412,30 +412,31 @@ function AskAIBtn({ question, onAsk }) {
   return <button onClick={() => onAsk(question)} title="Ask AI about this" style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: P.textMuted, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; e.currentTarget.style.color = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; e.currentTarget.style.color = P.textMuted; }}><I.Sparkle /> Ask AI</button>;
 }
 
-// ─── Chhattisgarh District Map (improved geography) ───
-const CG_PATHS = {
-  "Surguja":        "M155,10 L185,8 L210,15 L230,30 L235,55 L225,80 L210,90 L185,95 L165,100 L145,90 L130,70 L125,45 L135,25 Z",
-  "Korba":          "M130,70 L145,90 L165,100 L185,95 L195,115 L185,135 L165,145 L140,140 L120,125 L115,100 Z",
-  "Bilaspur":       "M185,95 L210,90 L235,95 L245,115 L240,140 L220,150 L195,140 L185,135 L195,115 Z",
-  "Janjgir-Champa": "M220,150 L240,140 L265,135 L280,145 L285,170 L270,185 L245,185 L230,175 Z",
-  "Raipur":         "M165,145 L185,135 L195,140 L220,150 L230,175 L225,200 L210,215 L185,220 L165,210 L150,195 L155,165 Z",
-  "Mahasamund":     "M230,175 L245,185 L270,185 L280,200 L275,220 L255,230 L235,225 L225,200 L210,215 Z",
-  "Durg":           "M95,150 L120,140 L140,140 L165,145 L155,165 L150,195 L130,200 L105,190 L90,175 Z",
-  "Rajnandgaon":    "M55,145 L75,130 L95,135 L95,150 L90,175 L105,190 L100,215 L80,230 L55,220 L45,195 L50,165 Z",
-  "Kawardha":       "M60,100 L85,90 L115,100 L120,125 L95,135 L75,130 L55,145 L50,120 Z",
-  "Dhamtari":       "M150,195 L165,210 L185,220 L180,245 L165,260 L140,265 L125,245 L130,220 L130,200 Z",
-  "Kanker":         "M80,230 L100,215 L130,200 L130,220 L125,245 L140,265 L130,290 L110,300 L85,290 L70,265 Z",
-  "Bastar":         "M110,300 L130,290 L140,265 L165,260 L180,245 L200,255 L215,280 L220,310 L210,340 L190,365 L165,370 L140,360 L120,340 L105,320 Z",
+// ─── Chhattisgarh Leaflet Map ───
+const CG_GEO = {
+  "Surguja":        [[23.6,82.0],[23.8,82.3],[23.9,82.7],[23.7,83.1],[23.4,83.2],[23.1,82.9],[23.0,82.5],[23.2,82.1]],
+  "Korba":          [[22.8,82.2],[23.0,82.5],[23.1,82.9],[22.8,83.0],[22.5,82.8],[22.4,82.5],[22.5,82.2]],
+  "Bilaspur":       [[22.5,81.8],[22.8,82.2],[22.5,82.5],[22.4,82.8],[22.1,82.7],[21.9,82.3],[22.0,81.9]],
+  "Janjgir-Champa": [[22.2,82.4],[22.4,82.8],[22.3,83.1],[22.0,83.2],[21.8,82.9],[21.9,82.5]],
+  "Raipur":         [[21.5,81.5],[21.8,81.8],[21.9,82.2],[21.7,82.5],[21.3,82.4],[21.1,82.0],[21.2,81.6]],
+  "Mahasamund":     [[21.3,82.4],[21.7,82.5],[21.6,82.9],[21.3,83.1],[21.0,82.8],[21.0,82.5]],
+  "Durg":           [[21.5,81.0],[21.8,81.3],[21.8,81.8],[21.5,81.5],[21.2,81.4],[21.1,81.1]],
+  "Rajnandgaon":    [[21.5,80.5],[21.7,80.8],[21.5,81.0],[21.1,81.1],[20.8,80.9],[20.7,80.6],[20.9,80.4],[21.2,80.3]],
+  "Kawardha":       [[22.2,80.8],[22.5,81.2],[22.5,81.8],[22.0,81.5],[21.8,81.3],[21.7,80.8],[22.0,80.7]],
+  "Dhamtari":       [[20.8,81.3],[21.1,81.6],[21.2,82.0],[20.9,82.1],[20.5,81.9],[20.4,81.5],[20.6,81.3]],
+  "Kanker":         [[20.4,80.8],[20.7,81.1],[20.8,81.3],[20.6,81.5],[20.5,81.9],[20.2,81.7],[19.9,81.3],[20.0,80.9]],
+  "Bastar":         [[19.9,81.3],[20.2,81.7],[20.5,81.9],[20.4,82.2],[20.1,82.5],[19.6,82.3],[19.1,82.0],[18.9,81.6],[19.1,81.2],[19.5,81.0]],
 };
-const CG_CENTERS = {
-  "Surguja": [175, 52], "Korba": [155, 112], "Bilaspur": [215, 117], "Janjgir-Champa": [253, 163],
-  "Raipur": [192, 180], "Mahasamund": [250, 205], "Durg": [130, 170], "Rajnandgaon": [72, 180],
-  "Kawardha": [85, 112], "Dhamtari": [155, 232], "Kanker": [105, 262], "Bastar": [165, 315],
-};
+const CG_CENTER = [21.3, 81.8];
 
 function GeoMap({ dd, metric = "screeningRate", onAsk }) {
+  const mapRef = useRef(null);
+  const mapInst = useRef(null);
+  const layerRef = useRef(null);
   const [selected, setSelected] = useState(null);
   const [mapMetric, setMapMetric] = useState(metric);
+  const [mapReady, setMapReady] = useState(false);
+
   const getVal = (d) => {
     if (mapMetric === "screeningRate") return parseFloat(d.screeningRate);
     if (mapMetric === "drugAvailability") return parseFloat(d.drugAvailability);
@@ -454,43 +455,69 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     }
     return val > 65 ? "#059669" : val > 45 ? "#D97706" : "#991B1B";
   };
-  const getBg = (val) => {
+  const getFill = (val) => {
     if (mapMetric === "totalCases") {
       const t = maxV > minV ? (val - minV) / (maxV - minV) : 0;
       return t > 0.7 ? "#fee2e2" : t > 0.4 ? "#fef3c7" : "#f0fdf4";
     }
-    return val > 65 ? "#f0fdf4" : val > 45 ? "#fef3c7" : "#fee2e2";
+    return val > 65 ? "#dcfce7" : val > 45 ? "#fef9c3" : "#fee2e2";
   };
+
+  useEffect(() => {
+    if (!mapRef.current || mapInst.current) return;
+    const initMap = () => {
+      if (!window.L) return setTimeout(initMap, 150);
+      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 7);
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 12, minZoom: 6, opacity: 0.55 }).addTo(m);
+      window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
+      mapInst.current = m;
+      layerRef.current = window.L.layerGroup().addTo(m);
+      setMapReady(true);
+      setTimeout(() => m.invalidateSize(), 200);
+    };
+    // Load Leaflet CSS + JS dynamically
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+    }
+    if (!window.L && !document.querySelector('script[src*="leaflet"]')) {
+      const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"; sc.onload = initMap; document.head.appendChild(sc);
+    } else { initMap(); }
+    return () => { if (mapInst.current) { mapInst.current.remove(); mapInst.current = null; layerRef.current = null; setMapReady(false); } };
+  }, []);
+
+  useEffect(() => {
+    if (!mapReady || !layerRef.current || !window.L) return;
+    layerRef.current.clearLayers();
+    dd.forEach(d => {
+      const coords = CG_GEO[d.name];
+      if (!coords) return;
+      const val = getVal(d);
+      const color = getColor(val);
+      const fill = getFill(val);
+      const isSel = selected === d.name;
+      const poly = window.L.polygon(coords, { color: isSel ? "#C2410C" : color, weight: isSel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.7 });
+      poly.on("click", () => setSelected(prev => prev === d.name ? null : d.name));
+      const center = poly.getBounds().getCenter();
+      const label = window.L.divIcon({
+        className: "", html: '<div style="text-align:center;pointer-events:none"><div style="font-size:10px;font-weight:700;color:#1F2937;text-shadow:0 0 3px #fff,0 0 3px #fff">' + d.name + '</div><div style="font-size:11px;font-weight:800;color:' + color + ';text-shadow:0 0 3px #fff,0 0 3px #fff">' + (mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%") + '</div></div>',
+        iconSize: [80, 30], iconAnchor: [40, 15],
+      });
+      window.L.marker(center, { icon: label, interactive: false }).addTo(layerRef.current);
+      poly.addTo(layerRef.current);
+    });
+  }, [dd, mapMetric, selected, mapReady]);
+
   const sData = selected ? dd.find(d => d.name === selected) : null;
   return <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <I.Map />
-        <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chhattisgarh — district map</span>
-      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}><I.Map /><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chhattisgarh — district map</span></div>
       <div className="ncd-filter-pills" style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
         {Object.keys(metricLabel).map(k => <button key={k} onClick={() => setMapMetric(k)} style={{ padding: "4px 10px", borderRadius: 6, border: mapMetric === k ? `1px solid ${P.accent}` : `1px solid ${P.border}`, background: mapMetric === k ? P.accentGlow : "none", color: mapMetric === k ? P.accent : P.textDim, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{metricLabel[k]}</button>)}
       </div>
     </div>
     <div style={{ position: "relative" }}>
-      <svg viewBox="30 0 280 380" style={{ width: "100%", maxWidth: 420, display: "block", margin: "0 auto" }}>
-        {dd.map(d => {
-          const path = CG_PATHS[d.name];
-          if (!path) return null;
-          const val = getVal(d);
-          const center = CG_CENTERS[d.name];
-          const isSel = selected === d.name;
-          return <g key={d.name} onClick={() => setSelected(isSel ? null : d.name)} style={{ cursor: "pointer" }}>
-            <path d={path} fill={getBg(val)} stroke={isSel ? P.accent : getColor(val)} strokeWidth={isSel ? 2.5 : 1} />
-            {center && <>
-              <text x={center[0]} y={center[1] - 6} textAnchor="middle" fontSize="7.5" fill={P.text} fontWeight="600" style={{ pointerEvents: "none" }}>{d.name}</text>
-              <text x={center[0]} y={center[1] + 5} textAnchor="middle" fontSize="8.5" fill={getColor(val)} fontWeight="700" style={{ pointerEvents: "none" }}>{mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%"}</text>
-            </>}
-          </g>;
-        })}
-      </svg>
-      {/* Detail card — bottom right overlay */}
-      {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 0, right: 0, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }}>
+      <div ref={mapRef} style={{ width: "100%", height: 450, borderRadius: 10, border: `1px solid ${P.border}`, zIndex: 1 }} />
+      {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 12, right: 12, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 1000 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{sData.name}</div>
           <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: P.textDim, fontSize: 14 }}>✕</button>
@@ -505,16 +532,14 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
         {onAsk && <div style={{ marginTop: 10 }}><AskAIBtn question={`Analyze ${sData.name} district — screening ${sData.screeningRate}%, drugs ${sData.drugAvailability}%, budget ${(sData.budgetUtilized*100).toFixed(0)}%, HR ${(sData.hrFilled*100).toFixed(0)}%. What are the key issues and recommended interventions?`} onAsk={onAsk} /></div>}
       </div>}
     </div>
-    {/* Legend */}
     <div style={{ display: "flex", gap: 16, fontSize: 10, color: P.textDim, marginTop: 12, justifyContent: "center" }}>
-      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#f0fdf4", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good (&gt;65%)</span>
-      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef3c7", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning (45-65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#dcfce7", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good (&gt;65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef9c3", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning (45-65%)</span>
       <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fee2e2", border: "1px solid #991B1B", marginRight: 4, verticalAlign: "middle" }} />Critical (&lt;45%)</span>
     </div>
     <div style={{ fontSize: 9, color: P.textDim, textAlign: "center", marginTop: 6 }}>Click a district to view details · Tap again to close</div>
   </div>;
 }
-
 // ─── Shared UI ───
 function Bar({ value, max = 100, color = P.accent, h = 6 }) {
   return <div style={{ width: "100%", height: h, background: P.border, borderRadius: h / 2, overflow: "hidden" }}><div style={{ width: `${Math.min(value / max * 100, 100)}%`, height: "100%", background: color, borderRadius: h / 2, transition: "width 0.8s ease" }} /></div>;
