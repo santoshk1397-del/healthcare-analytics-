@@ -465,12 +465,38 @@ function StackedBarChart({ data, height = 200 }) {
 
   const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
-  // ✅ AUTO SCROLL TO LATEST (RIGHT)
+  // ✅ MOBILE-SAFE AUTO SCROLL
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
-    }
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const t1 = setTimeout(() => {
+      el.scrollLeft = el.scrollWidth;
+    }, 0);
+
+    const t2 = setTimeout(() => {
+      el.scrollLeft = el.scrollWidth;
+    }, 120);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [grouped.length]);
+
+  // ✅ extra safety for resize / layout shifts
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const ro = new ResizeObserver(() => {
+      el.scrollLeft = el.scrollWidth;
+    });
+
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div
@@ -554,7 +580,7 @@ function StackedBarChart({ data, height = 200 }) {
         ))}
       </div>
 
-      {/* tooltip */}
+      {/* ✅ GLOBAL TOOLTIP (never clipped) */}
       {hover && (
         <div
           style={{
