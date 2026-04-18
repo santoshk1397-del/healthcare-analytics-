@@ -231,6 +231,22 @@ function computeTotals(dd) {
   return { totalPopulation: dd.reduce((s, d) => s + (d.population || 0), 0), totalCases: dd.reduce((s, d) => s + d.totalCases, 0), avgScreening: (dd.reduce((s, d) => s + parseFloat(d.screeningRate), 0) / n).toFixed(1), avgBudgetUtil: (dd.reduce((s, d) => s + d.budgetUtilized, 0) / n * 100).toFixed(1), totalBudget: dd.reduce((s, d) => s + d.budgetAllocated, 0), avgDrugAvail: (dd.reduce((s, d) => s + parseFloat(d.drugAvailability), 0) / n).toFixed(1), avgHrFill: (dd.reduce((s, d) => s + d.hrFilled, 0) / n * 100).toFixed(1) };
 }
 
+// ─── Diease Monthly Data ─── 
+function getDiseaseMonthlyData(rows, district, dateFrom, dateTo) {
+  return rows
+    .filter(r =>
+      (!district || r.district_name === district) &&
+      (!dateFrom || r.month_date >= dateFrom) &&
+      (!dateTo || r.month_date <= dateTo)
+    )
+    .map(r => ({
+      label: r.month_date,
+      disease: r.disease_type,
+      cases: Number(r.cases || 0)
+    }))
+    .sort((a, b) => new Date(a.label) - new Date(b.label));
+}
+
 // ─── Aggregate raw rows with filters ───
 function aggregateRows(rows, { district = "all", month = "all", year = "all", dateFrom = null, dateTo = null } = {}, allRows = null) {
   const fullSet = allRows || rows;
@@ -1087,7 +1103,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
           <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
-            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <BarChart data={buildTimeSeries(rawRows, { district: s.name, dateFrom, dateTo})} lk="label" vk="scrA"/> </div> </div> {/* Fix here for bar */}
+            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <BarChart data={getDiseaseMonthlyData(rawRows, { district: s.name, dateFrom, dateTo})} lk="label" vk="scrA"/> </div> </div> {/* Fix here for bar */}
           </div>
         </div>}
       </div>}
@@ -1642,6 +1658,7 @@ function HealthWorker() {
   const dName = (id) => DISTRICTS_META.find(d => d.id === id)?.name || "—";
   const pAge = (p) => p?.dob ? calculateAge(p.dob) : null;
   const obsFor = (sid) => observations.filter(o => o.screening_id === sid);
+  
 
   // ── API helper — matches your working upload.js pattern ──
   const api = async (url, body) => {
