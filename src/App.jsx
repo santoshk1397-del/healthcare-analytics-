@@ -415,18 +415,18 @@ function AskAIBtn({ question, onAsk }) {
 // ─── Chhattisgarh Leaflet Map ───
 // District HQ coordinates (actual lat/lng)
 const CG_DISTRICTS = {
-  "Surguja":        { lat: 23.12, lng: 83.20, radius: 28 },
-  "Korba":          { lat: 22.35, lng: 82.68, radius: 22 },
-  "Bilaspur":       { lat: 22.08, lng: 82.15, radius: 24 },
-  "Janjgir-Champa": { lat: 21.82, lng: 82.57, radius: 20 },
-  "Raipur":         { lat: 21.25, lng: 81.63, radius: 26 },
-  "Mahasamund":     { lat: 21.10, lng: 82.10, radius: 20 },
-  "Durg":           { lat: 21.19, lng: 81.28, radius: 20 },
-  "Rajnandgaon":    { lat: 21.10, lng: 81.03, radius: 22 },
-  "Kawardha":       { lat: 22.02, lng: 81.23, radius: 20 },
-  "Dhamtari":       { lat: 20.71, lng: 81.55, radius: 18 },
-  "Kanker":         { lat: 20.27, lng: 81.49, radius: 20 },
-  "Bastar":         { lat: 19.08, lng: 82.02, radius: 32 },
+  "Surguja":        { lat: 23.12, lng: 83.20, radius: 75 },
+  "Korba":          { lat: 22.35, lng: 82.68, radius: 60 },
+  "Bilaspur":       { lat: 22.08, lng: 82.15, radius: 65 },
+  "Janjgir-Champa": { lat: 21.82, lng: 82.57, radius: 55 },
+  "Raipur":         { lat: 21.25, lng: 81.63, radius: 70 },
+  "Mahasamund":     { lat: 21.10, lng: 82.10, radius: 55 },
+  "Durg":           { lat: 21.19, lng: 81.28, radius: 55 },
+  "Rajnandgaon":    { lat: 21.10, lng: 81.03, radius: 60 },
+  "Kawardha":       { lat: 22.02, lng: 81.23, radius: 55 },
+  "Dhamtari":       { lat: 20.71, lng: 81.55, radius: 50 },
+  "Kanker":         { lat: 20.27, lng: 81.49, radius: 55 },
+  "Bastar":         { lat: 19.08, lng: 82.02, radius: 85 },
 };
 const CG_CENTER = [21.1, 81.85];
 
@@ -506,7 +506,7 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
       const fill = getFill(val);
       const isSel = selected === d.name;
       const center = window.L.latLng(info.lat, info.lng);
-      const circle = window.L.circleMarker(center, { radius: isSel ? info.radius + 4 : info.radius, color: isSel ? "#C2410C" : color, weight: isSel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.8 });
+      const circle = window.L.circleMarker(center, { radius: isSel ? info.radius + 8 : info.radius, color: isSel ? "#C2410C" : color, weight: isSel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.8 });
       circle.on("click", () => setSelected(prev => prev === d.name ? null : d.name));
       const label = window.L.divIcon({
         className: "", html: '<div style="text-align:center;pointer-events:none"><div style="font-size:10px;font-weight:700;color:#1F2937;text-shadow:0 0 3px #fff,0 0 3px #fff">' + d.name + '</div><div style="font-size:11px;font-weight:800;color:' + color + ';text-shadow:0 0 3px #fff,0 0 3px #fff">' + (mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%") + '</div></div>',
