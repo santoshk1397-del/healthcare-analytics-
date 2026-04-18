@@ -951,8 +951,7 @@ function Reports({ rawRows, role, onAskAI }) {
   // Time-series data respecting filters
   const ts = buildTimeSeries(filteredRows, { district: fDistrict, dateFrom, dateTo });
 
-  const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
-  const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
+  const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
   const [showDQModal, setShowDQModal] = useState(false);
 
@@ -1000,6 +999,90 @@ function Reports({ rawRows, role, onAskAI }) {
     // Sort: critical first, then by district
     return issues.sort((a, b) => (a.severity === "critical" ? 0 : 1) - (b.severity === "critical" ? 0 : 1) || a.district.localeCompare(b.district));
   })();
+
+  const [showAnomalyModal, setShowAnomalyModal] = useState(false);
+  const [alertModalTab, setAlertModalTab] = useState("alerts");
+
+  // ── Threshold Alerts (inline) ──
+  const thresholdAlerts = (() => {
+    const alerts = [];
+    const districts = role.allDistricts ? fdd : fdd.filter(d => d.name === role.district);
+    const avgScr = districts.length > 0 ? districts.reduce((s, d) => s + parseFloat(d.screeningRate), 0) / districts.length : 50;
+    const avgDrug = districts.length > 0 ? districts.reduce((s, d) => s + parseFloat(d.drugAvailability), 0) / districts.length : 50;
+    districts.forEach(d => {
+      const scr = parseFloat(d.screeningRate), drug = parseFloat(d.drugAvailability), bud = d.budgetUtilized * 100, hr = d.hrFilled * 100;
+      if (scr < 25) alerts.push({ district: d.name, type: "critical", msg: `Screening critically low at ${scr}% (state avg: ${avgScr.toFixed(0)}%)`, metric: "Screening" });
+      else if (scr < 33 && scr < avgScr - 15) alerts.push({ district: d.name, type: "warning", msg: `Screening at ${scr}%, below state avg ${avgScr.toFixed(0)}%`, metric: "Screening" });
+      if (drug < 25) alerts.push({ district: d.name, type: "critical", msg: `Drug availability critically low at ${drug}%`, metric: "Drugs" });
+      else if (drug < 35 && drug < avgDrug - 15) alerts.push({ district: d.name, type: "warning", msg: `Drug availability at ${drug}%, below avg ${avgDrug.toFixed(0)}%`, metric: "Drugs" });
+      if (bud < 20) alerts.push({ district: d.name, type: "critical", msg: `Budget utilization critically low at ${bud.toFixed(0)}%`, metric: "Budget" });
+      else if (bud < 30) alerts.push({ district: d.name, type: "warning", msg: `Budget underutilized at ${bud.toFixed(0)}%`, metric: "Budget" });
+      if (hr < 30) alerts.push({ district: d.name, type: "critical", msg: `Severe staffing gap: ${hr.toFixed(0)}% filled`, metric: "HR" });
+      else if (hr < 37) alerts.push({ district: d.name, type: "warning", msg: `Staffing low at ${hr.toFixed(0)}%`, metric: "HR" });
+    });
+    return alerts.sort((a, b) => (a.type === "critical" ? 0 : 1) - (b.type === "critical" ? 0 : 1));
+  })();
+
+  // ── Anomaly Detection (month-over-month change) ──
+  const anomalies = (() => {
+    if (!rawRows.length) return [];
+    const results = [];
+    const allDistricts = [...new Set(rawRows.map(r => r.district_name))].sort();
+    const allMonthKeys = [...new Set(rawRows.map(r => { const d = getRowDate(r); return d ? d.slice(0, 7) : null; }).filter(Boolean))].sort();
+    if (allMonthKeys.length < 2) return [];
+    const latestMonth = allMonthKeys[allMonthKeys.length - 1];
+    const prevMonth = allMonthKeys[allMonthKeys.length - 2];
+    const MLABEL = { "01":"Jan","02":"Feb","03":"Mar","04":"Apr","05":"May","06":"Jun","07":"Jul","08":"Aug","09":"Sep","10":"Oct","11":"Nov","12":"Dec" };
+    const fmtYM = (ym) => { const [y, m] = ym.split("-"); return `${MLABEL[m] || m} ${y}`; };
+
+    allDistricts.forEach(dist => {
+      const distRows = rawRows.filter(r => r.district_name === dist);
+      const getMonthRows = (ym) => distRows.filter(r => { const d = getRowDate(r); return d && d.startsWith(ym); });
+      const curr = getMonthRows(latestMonth), prev = getMonthRows(prevMonth);
+      if (!curr.length || !prev.length) return;
+
+      // Cases change (only if absolute diff > 20)
+      const currCases = curr.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+      const prevCases = prev.reduce((s, r) => s + (Number(r.cases) || 0), 0);
+      if (prevCases > 0 && Math.abs(currCases - prevCases) > 20) {
+        const pct = ((currCases - prevCases) / prevCases) * 100;
+        if (pct > 25) results.push({ district: dist, metric: "Cases", direction: "up", pct: pct.toFixed(0), from: prevCases, to: currCases, period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: pct > 40 ? "critical" : "warning" });
+        else if (pct < -25) results.push({ district: dist, metric: "Cases", direction: "down", pct: pct.toFixed(0), from: prevCases, to: currCases, period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: "info" });
+      }
+
+      // Screening change
+      const currScrT = curr.reduce((s, r) => s + (Number(r.screening_target) || 0), 0);
+      const currScrA = curr.reduce((s, r) => s + (Number(r.screening_achieved) || 0), 0);
+      const prevScrT = prev.reduce((s, r) => s + (Number(r.screening_target) || 0), 0);
+      const prevScrA = prev.reduce((s, r) => s + (Number(r.screening_achieved) || 0), 0);
+      const currScrR = currScrT > 0 ? (currScrA / currScrT * 100) : 0;
+      const prevScrR = prevScrT > 0 ? (prevScrA / prevScrT * 100) : 0;
+      const scrDelta = currScrR - prevScrR;
+      if (scrDelta < -12) results.push({ district: dist, metric: "Screening", direction: "down", pct: scrDelta.toFixed(0), from: prevScrR.toFixed(0) + "%", to: currScrR.toFixed(0) + "%", period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: scrDelta < -20 ? "critical" : "warning" });
+
+      // Drug availability change
+      const currDrug = curr.reduce((s, r) => s + (Number(r.drug_availability_pct) || 0), 0) / (curr.length || 1);
+      const prevDrug = prev.reduce((s, r) => s + (Number(r.drug_availability_pct) || 0), 0) / (prev.length || 1);
+      const drugDelta = currDrug - prevDrug;
+      if (drugDelta < -15) results.push({ district: dist, metric: "Drugs", direction: "down", pct: drugDelta.toFixed(0), from: prevDrug.toFixed(0) + "%", to: currDrug.toFixed(0) + "%", period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: drugDelta < -25 ? "critical" : "warning" });
+
+      // Per-disease spikes (only if absolute diff > 20)
+      DISEASES.forEach(dis => {
+        const currD = curr.filter(r => r.disease_type === dis).reduce((s, r) => s + (Number(r.cases) || 0), 0);
+        const prevD = prev.filter(r => r.disease_type === dis).reduce((s, r) => s + (Number(r.cases) || 0), 0);
+        if (prevD > 5 && Math.abs(currD - prevD) > 20) {
+          const pct = ((currD - prevD) / prevD) * 100;
+          if (pct > 35) results.push({ district: dist, metric: dis, direction: "up", pct: pct.toFixed(0), from: prevD, to: currD, period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: pct > 50 ? "critical" : "warning" });
+        }
+      });
+    });
+
+    return results.sort((a, b) => {
+      const sev = { critical: 0, warning: 1, info: 2 };
+      return (sev[a.severity] || 2) - (sev[b.severity] || 2) || Math.abs(parseFloat(b.pct)) - Math.abs(parseFloat(a.pct));
+    });
+  })();
+  const totalAlertCount = thresholdAlerts.length + anomalies.filter(a => a.severity !== "info").length;
 
   // ── Shared export helpers ──
   const filterLabel = [fDistrict !== "all" ? fDistrict : "All Districts", TIME_RANGES.find(t => t.id === timeRange)?.label || "Custom", dateFrom || "", dateTo || ""].filter(Boolean).join(" · ");
@@ -1503,22 +1586,46 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
     </div>
     <div className="ncd-reports-pad" style={{ flex: 1, overflow: "auto", padding: 28 }}>
 
-      {/* Data Quality Strip */}
-      {rawRows.length > 0 && (() => {
-        const crit = dqIssues.filter(i => i.severity === "critical").length;
-        const warn = dqIssues.filter(i => i.severity === "warning").length;
-        const grade = crit === 0 && warn === 0 ? "A" : crit === 0 && warn <= 5 ? "B" : crit === 0 ? "C" : crit <= 3 ? "D" : "F";
-        const gradeColor = { A: P.green, B: "#059669", C: P.amber, D: "#D97706", F: P.red }[grade];
-        const gradeLabel = { A: "Excellent", B: "Good", C: "Fair", D: "Poor", F: "Critical" }[grade];
-        return <div onClick={() => setShowDQModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 6px 4px 4px", marginBottom: 14, borderRadius: 20, cursor: "pointer", background: P.surfaceAlt, border: `1px solid ${P.border}`, fontSize: 11, transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; }}>
-          <span style={{ fontWeight: 500, color: P.textDim, marginLeft: 4 }}>Data Quality</span>
-          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: `${gradeColor}18`, color: gradeColor, fontSize: 11, fontWeight: 800 }}>{grade}</span>
-          <span style={{ fontWeight: 600, color: P.text }}>{gradeLabel}</span>
-          {dqIssues.length > 0 && <><span style={{ color: P.textDim }}>·</span><span style={{ color: P.textMuted }}>{dqIssues.length} issue{dqIssues.length !== 1 ? "s" : ""}</span></>}
-          <span style={{ color: P.textDim }}>·</span>
-          <span style={{ color: P.textDim, textDecoration: "underline", marginRight: 4 }}>Details</span>
-        </div>;
-      })()}
+      {/* Status Pills — Data Quality + Alerts side by side */}
+      {rawRows.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        {/* Data Quality Pill */}
+        {(() => {
+          const crit = dqIssues.filter(i => i.severity === "critical").length;
+          const warn = dqIssues.filter(i => i.severity === "warning").length;
+          const grade = crit === 0 && warn === 0 ? "A" : crit === 0 && warn <= 5 ? "B" : crit === 0 ? "C" : crit <= 3 ? "D" : "F";
+          const gradeColor = { A: P.green, B: "#059669", C: P.amber, D: "#D97706", F: P.red }[grade];
+          const gradeLabel = { A: "Excellent", B: "Good", C: "Fair", D: "Poor", F: "Critical" }[grade];
+          return <div onClick={() => setShowDQModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 6px 4px 4px", borderRadius: 20, cursor: "pointer", background: P.surfaceAlt, border: `1px solid ${P.border}`, fontSize: 11, transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; }}>
+            <span style={{ fontWeight: 500, color: P.textDim, marginLeft: 4 }}>Data Quality</span>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: `${gradeColor}18`, color: gradeColor, fontSize: 11, fontWeight: 800 }}>{grade}</span>
+            <span style={{ fontWeight: 600, color: P.text }}>{gradeLabel}</span>
+            {dqIssues.length > 0 && <><span style={{ color: P.textDim }}>·</span><span style={{ color: P.textMuted }}>{dqIssues.length} issue{dqIssues.length !== 1 ? "s" : ""}</span></>}
+            <span style={{ color: P.textDim }}>·</span>
+            <span style={{ color: P.textDim, textDecoration: "underline", marginRight: 4 }}>Details</span>
+          </div>;
+        })()}
+        {/* Alerts & Anomalies Pill */}
+        {(() => {
+          const ac = thresholdAlerts.filter(a => a.type === "critical").length;
+          const aw = thresholdAlerts.filter(a => a.type === "warning").length;
+          const anC = anomalies.filter(a => a.severity === "critical").length;
+          const anW = anomalies.filter(a => a.severity !== "info").length;
+          const total = ac + aw + anW;
+          const hasCrit = ac > 0 || anC > 0;
+          const dotColor = total === 0 ? P.green : hasCrit ? P.red : P.amber;
+          return <div onClick={() => { setShowAnomalyModal(true); setAlertModalTab("alerts"); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 4px", borderRadius: 20, cursor: "pointer", background: P.surfaceAlt, border: `1px solid ${P.border}`, fontSize: 11, transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; }}>
+            <span style={{ fontWeight: 500, color: P.textDim, marginLeft: 4 }}>Alerts</span>
+            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: `${dotColor}18`, color: dotColor, fontSize: 11, fontWeight: 800 }}>{total}</span>
+            {total === 0 && <span style={{ fontWeight: 600, color: P.green }}>Clear</span>}
+            {ac > 0 && <span style={{ fontWeight: 600, color: P.red }}>{ac} critical</span>}
+            {aw > 0 && <span style={{ fontWeight: 600, color: P.amber }}>{aw} warn</span>}
+            {anW > 0 && <span style={{ color: P.textDim }}>·</span>}
+            {anW > 0 && <span style={{ color: P.textMuted }}>{anW} trend</span>}
+            <span style={{ color: P.textDim }}>·</span>
+            <span style={{ color: P.textDim, textDecoration: "underline", marginRight: 2 }}>Details</span>
+          </div>;
+        })()}
+      </div>}
 
       {/* Data Quality Modal */}
       {showDQModal && <div onClick={e => { if (e.target === e.currentTarget) setShowDQModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflow: "auto" }}>
@@ -1531,44 +1638,71 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
             <button onClick={() => setShowDQModal(false)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }}>Close</button>
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
-            {/* Summary cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 14, textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: "#166534" }}>{districtNames.length}</div>
-                <div style={{ fontSize: 10, color: "#166534" }}>Districts tracked</div>
-              </div>
-              <div style={{ background: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#fef2f2" : "#f0fdf4", border: `1px solid ${dqIssues.filter(i => i.severity === "critical").length > 0 ? "#fecaca" : "#bbf7d0"}`, borderRadius: 8, padding: 14, textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#991B1B" : "#166534" }}>{dqIssues.filter(i => i.severity === "critical").length}</div>
-                <div style={{ fontSize: 10, color: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#991B1B" : "#166534" }}>Critical issues</div>
-              </div>
-              <div style={{ background: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#fffbeb" : "#f0fdf4", border: `1px solid ${dqIssues.filter(i => i.severity === "warning").length > 0 ? "#fde68a" : "#bbf7d0"}`, borderRadius: 8, padding: 14, textAlign: "center" }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#92400e" : "#166534" }}>{dqIssues.filter(i => i.severity === "warning").length}</div>
-                <div style={{ fontSize: 10, color: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#92400e" : "#166534" }}>Warnings</div>
-              </div>
+              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: 14, textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 800, color: "#166534" }}>{districtNames.length}</div><div style={{ fontSize: 10, color: "#166534" }}>Districts tracked</div></div>
+              <div style={{ background: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#fef2f2" : "#f0fdf4", border: `1px solid ${dqIssues.filter(i => i.severity === "critical").length > 0 ? "#fecaca" : "#bbf7d0"}`, borderRadius: 8, padding: 14, textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 800, color: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#991B1B" : "#166534" }}>{dqIssues.filter(i => i.severity === "critical").length}</div><div style={{ fontSize: 10, color: dqIssues.filter(i => i.severity === "critical").length > 0 ? "#991B1B" : "#166534" }}>Critical issues</div></div>
+              <div style={{ background: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#fffbeb" : "#f0fdf4", border: `1px solid ${dqIssues.filter(i => i.severity === "warning").length > 0 ? "#fde68a" : "#bbf7d0"}`, borderRadius: 8, padding: 14, textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 800, color: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#92400e" : "#166534" }}>{dqIssues.filter(i => i.severity === "warning").length}</div><div style={{ fontSize: 10, color: dqIssues.filter(i => i.severity === "warning").length > 0 ? "#92400e" : "#166534" }}>Warnings</div></div>
             </div>
-            {dqIssues.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: P.green }}>
-              <I.Check /><div style={{ fontSize: 14, fontWeight: 700, marginTop: 8 }}>All data quality checks passed</div>
-              <div style={{ fontSize: 12, color: P.textDim, marginTop: 4 }}>No missing months, no zero-value entries, no anomalies detected.</div>
-            </div> : <div>
-              {/* Issue type groups */}
+            {dqIssues.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: P.green }}><I.Check /><div style={{ fontSize: 14, fontWeight: 700, marginTop: 8 }}>All data quality checks passed</div><div style={{ fontSize: 12, color: P.textDim, marginTop: 4 }}>No missing months, no zero-value entries, no anomalies detected.</div></div> : <div>
               {[{ type: "missing_month", label: "Missing months", icon: "📅" }, { type: "missing_disease", label: "Missing disease data", icon: "🔬" }, { type: "zero_cases", label: "Zero-value entries", icon: "⚠" }, { type: "scr_anomaly", label: "Screening anomalies", icon: "📊" }].map(group => {
                 const items = dqIssues.filter(i => i.type === group.type);
                 if (items.length === 0) return null;
                 return <div key={group.type} style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: P.text, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 14 }}>{group.icon}</span> {group.label} <span style={{ fontSize: 10, color: P.textDim, fontWeight: 400 }}>({items.length})</span>
-                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: P.text, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}><span style={{ fontSize: 14 }}>{group.icon}</span> {group.label} <span style={{ fontSize: 10, color: P.textDim, fontWeight: 400 }}>({items.length})</span></div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {items.slice(0, 20).map((issue, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 6, background: issue.severity === "critical" ? "#fef2f2" : "#fffbeb", borderLeft: `3px solid ${issue.severity === "critical" ? P.red : P.amber}` }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: P.text, minWidth: 100 }}>{issue.district}</span>
-                      <span style={{ fontSize: 11, color: P.textMuted, flex: 1 }}>{issue.detail}</span>
-                      <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, fontWeight: 700, background: issue.severity === "critical" ? "#fecaca" : "#fde68a", color: issue.severity === "critical" ? "#991B1B" : "#92400e" }}>{issue.severity}</span>
-                    </div>)}
+                    {items.slice(0, 20).map((issue, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 6, background: issue.severity === "critical" ? "#fef2f2" : "#fffbeb", borderLeft: `3px solid ${issue.severity === "critical" ? P.red : P.amber}` }}><span style={{ fontSize: 11, fontWeight: 700, color: P.text, minWidth: 100 }}>{issue.district}</span><span style={{ fontSize: 11, color: P.textMuted, flex: 1 }}>{issue.detail}</span><span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, fontWeight: 700, background: issue.severity === "critical" ? "#fecaca" : "#fde68a", color: issue.severity === "critical" ? "#991B1B" : "#92400e" }}>{issue.severity}</span></div>)}
                     {items.length > 20 && <div style={{ fontSize: 11, color: P.textDim, padding: "4px 12px" }}>+ {items.length - 20} more</div>}
                   </div>
                 </div>;
               })}
             </div>}
+          </div>
+        </div>
+      </div>}
+
+      {/* Alerts & Anomalies Modal */}
+      {showAnomalyModal && <div onClick={e => { if (e.target === e.currentTarget) setShowAnomalyModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflow: "auto" }}>
+        <div className="ncd-cmp-box" style={{ background: P.surface, borderRadius: 14, width: "100%", maxWidth: 750, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div className="ncd-cmp-head" style={{ padding: "16px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>Alerts & anomalies</div>
+              <div style={{ fontSize: 11, color: P.textDim, marginTop: 2 }}>{totalAlertCount} active · {thresholdAlerts.length} threshold · {anomalies.filter(a => a.severity !== "info").length} trend · {anomalies.filter(a => a.severity === "info").length} improved</div>
+            </div>
+            <button onClick={() => setShowAnomalyModal(false)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }}>Close</button>
+          </div>
+          <div style={{ display: "flex", gap: 0, padding: "12px 24px 0", borderBottom: `1px solid ${P.border}` }}>
+            {[{ id: "alerts", l: "Threshold alerts", count: thresholdAlerts.length }, { id: "anomalies", l: "Anomalies", count: anomalies.filter(a => a.severity !== "info").length }, { id: "improvements", l: "Improvements", count: anomalies.filter(a => a.severity === "info").length }].map(t => <button key={t.id} onClick={() => setAlertModalTab(t.id)} style={{ padding: "8px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: alertModalTab === t.id ? P.accent : P.textDim, borderBottom: alertModalTab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", fontFamily: "'DM Sans'", marginBottom: -1 }}>{t.l} <span style={{ fontSize: 10, fontWeight: 400 }}>({t.count})</span></button>)}
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: 20 }}>
+            {alertModalTab === "alerts" && (thresholdAlerts.length === 0 ? <div style={{ textAlign: "center", padding: 30, color: P.green }}><I.Check /><div style={{ fontSize: 14, fontWeight: 700, marginTop: 8 }}>All metrics within thresholds</div></div> :
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {thresholdAlerts.map((a, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, background: a.type === "critical" ? "#fef2f2" : "#fffbeb", borderLeft: `3px solid ${a.type === "critical" ? P.red : P.amber}` }}>
+                <div style={{ flex: 1 }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 12, fontWeight: 700, color: P.text }}>{a.district}</span><span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: `${a.type === "critical" ? P.red : P.amber}20`, color: a.type === "critical" ? P.red : P.amber, fontWeight: 700 }}>{a.metric}</span></div><div style={{ fontSize: 11, color: P.textMuted, marginTop: 3 }}>{a.msg}</div></div>
+                <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, fontWeight: 700, background: a.type === "critical" ? "#fecaca" : "#fde68a", color: a.type === "critical" ? "#991B1B" : "#92400e" }}>{a.type}</span>
+              </div>)}
+            </div>)}
+            {alertModalTab === "anomalies" && (() => {
+              const items = anomalies.filter(a => a.severity !== "info");
+              return items.length === 0 ? <div style={{ textAlign: "center", padding: 30, color: P.green }}><I.Check /><div style={{ fontSize: 14, fontWeight: 700, marginTop: 8 }}>No significant anomalies</div></div> :
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {items.map((a, i) => { const c = a.severity === "critical" ? P.red : P.amber; return <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, background: a.severity === "critical" ? "#fef2f2" : "#fffbeb", borderLeft: `3px solid ${c}` }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: c, minWidth: 55, textAlign: "center" }}>{a.direction === "up" ? "↑" : "↓"}{a.pct}%</div>
+                  <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 700, color: P.text }}>{a.district} · {a.metric}</div><div style={{ fontSize: 11, color: P.textMuted }}>{a.from} → {a.to} · {a.period}</div></div>
+                  <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, fontWeight: 700, background: `${c}20`, color: c }}>{a.severity}</span>
+                </div>; })}
+              </div>;
+            })()}
+            {alertModalTab === "improvements" && (() => {
+              const items = anomalies.filter(a => a.severity === "info");
+              return items.length === 0 ? <div style={{ textAlign: "center", padding: 30, color: P.textDim }}>No notable improvements this month.</div> :
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {items.map((a, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, background: "#eff6ff", borderLeft: `3px solid ${P.blue}` }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: P.blue, minWidth: 55, textAlign: "center" }}>{a.direction === "up" ? "↑" : "↓"}{a.pct}%</div>
+                  <div style={{ flex: 1 }}><div style={{ fontSize: 12, fontWeight: 700, color: P.text }}>{a.district} · {a.metric}</div><div style={{ fontSize: 11, color: P.textMuted }}>{a.from} → {a.to} · {a.period}</div></div>
+                  <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, fontWeight: 700, background: "#bfdbfe", color: "#1e40af" }}>improved</span>
+                </div>)}
+              </div>;
+            })()}
           </div>
         </div>
       </div>}
@@ -1762,7 +1896,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
       </div>}
 
       {/* Alerts */}
-      {tab === "alerts" && showAlerts && <Alerts dd={fdd} role={role} />}
+      {/* Alerts tab removed — merged into dashboard banner */}
     </div>
   </div>;
 }
