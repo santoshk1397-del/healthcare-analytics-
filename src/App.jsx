@@ -467,7 +467,7 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     if (!mapRef.current || mapInst.current) return;
     const initMap = () => {
       if (!window.L) return setTimeout(initMap, 150);
-      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 7);
+      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 7.5);
       window.L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 12, minZoom: 6, opacity: 0.7, subdomains: "abcd" }).addTo(m);
       window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
       mapInst.current = m;
