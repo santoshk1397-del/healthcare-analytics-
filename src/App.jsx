@@ -412,30 +412,31 @@ function AskAIBtn({ question, onAsk }) {
   return <button onClick={() => onAsk(question)} title="Ask AI about this" style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: P.textMuted, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; e.currentTarget.style.color = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; e.currentTarget.style.color = P.textMuted; }}><I.Sparkle /> Ask AI</button>;
 }
 
-// ─── Chhattisgarh District Map (improved geography) ───
-const CG_PATHS = {
-  "Surguja":        "M155,10 L185,8 L210,15 L230,30 L235,55 L225,80 L210,90 L185,95 L165,100 L145,90 L130,70 L125,45 L135,25 Z",
-  "Korba":          "M130,70 L145,90 L165,100 L185,95 L195,115 L185,135 L165,145 L140,140 L120,125 L115,100 Z",
-  "Bilaspur":       "M185,95 L210,90 L235,95 L245,115 L240,140 L220,150 L195,140 L185,135 L195,115 Z",
-  "Janjgir-Champa": "M220,150 L240,140 L265,135 L280,145 L285,170 L270,185 L245,185 L230,175 Z",
-  "Raipur":         "M165,145 L185,135 L195,140 L220,150 L230,175 L225,200 L210,215 L185,220 L165,210 L150,195 L155,165 Z",
-  "Mahasamund":     "M230,175 L245,185 L270,185 L280,200 L275,220 L255,230 L235,225 L225,200 L210,215 Z",
-  "Durg":           "M95,150 L120,140 L140,140 L165,145 L155,165 L150,195 L130,200 L105,190 L90,175 Z",
-  "Rajnandgaon":    "M55,145 L75,130 L95,135 L95,150 L90,175 L105,190 L100,215 L80,230 L55,220 L45,195 L50,165 Z",
-  "Kawardha":       "M60,100 L85,90 L115,100 L120,125 L95,135 L75,130 L55,145 L50,120 Z",
-  "Dhamtari":       "M150,195 L165,210 L185,220 L180,245 L165,260 L140,265 L125,245 L130,220 L130,200 Z",
-  "Kanker":         "M80,230 L100,215 L130,200 L130,220 L125,245 L140,265 L130,290 L110,300 L85,290 L70,265 Z",
-  "Bastar":         "M110,300 L130,290 L140,265 L165,260 L180,245 L200,255 L215,280 L220,310 L210,340 L190,365 L165,370 L140,360 L120,340 L105,320 Z",
+// ─── Chhattisgarh Leaflet Map ───
+const CG_GEO = {
+  "Surguja":        [[23.65,82.65],[23.55,82.85],[23.50,83.10],[23.50,83.40],[23.45,83.60],[23.25,83.70],[23.00,83.65],[22.80,83.50],[22.70,83.30],[22.70,83.05],[22.80,82.85],[22.95,82.70],[23.15,82.60],[23.40,82.58]],
+  "Korba":          [[22.80,82.30],[22.75,82.50],[22.70,82.70],[22.65,82.90],[22.50,83.00],[22.30,82.95],[22.10,82.85],[22.05,82.65],[22.10,82.45],[22.25,82.30],[22.45,82.25],[22.60,82.25]],
+  "Bilaspur":       [[22.55,81.80],[22.50,82.00],[22.45,82.20],[22.35,82.40],[22.15,82.45],[21.90,82.35],[21.75,82.15],[21.75,81.95],[21.85,81.80],[22.00,81.72],[22.20,81.68],[22.40,81.72]],
+  "Janjgir-Champa": [[22.15,82.20],[22.10,82.45],[22.05,82.70],[21.95,82.90],[21.75,82.95],[21.55,82.85],[21.45,82.65],[21.45,82.40],[21.55,82.20],[21.75,82.10],[21.95,82.12]],
+  "Raipur":         [[21.55,81.35],[21.50,81.55],[21.45,81.75],[21.35,81.90],[21.15,81.95],[20.95,81.85],[20.90,81.65],[20.95,81.45],[21.05,81.30],[21.20,81.22],[21.38,81.22]],
+  "Mahasamund":     [[21.35,81.90],[21.30,82.15],[21.20,82.40],[21.05,82.55],[20.85,82.50],[20.70,82.30],[20.70,82.05],[20.80,81.85],[20.95,81.78],[21.15,81.80]],
+  "Durg":           [[21.55,81.00],[21.50,81.20],[21.50,81.38],[21.38,81.38],[21.20,81.32],[21.05,81.20],[21.00,81.00],[21.05,80.85],[21.20,80.78],[21.38,80.80]],
+  "Rajnandgaon":    [[21.45,80.55],[21.40,80.75],[21.38,80.95],[21.25,81.05],[21.05,81.08],[20.85,80.98],[20.70,80.80],[20.70,80.60],[20.80,80.45],[20.98,80.38],[21.18,80.38],[21.35,80.45]],
+  "Kawardha":       [[22.50,80.85],[22.45,81.05],[22.40,81.25],[22.30,81.45],[22.15,81.55],[21.95,81.50],[21.75,81.35],[21.65,81.15],[21.68,80.95],[21.80,80.80],[22.00,80.72],[22.25,80.72]],
+  "Dhamtari":       [[21.05,81.25],[20.98,81.45],[20.90,81.65],[20.78,81.78],[20.58,81.78],[20.42,81.65],[20.38,81.45],[20.42,81.28],[20.55,81.15],[20.72,81.10],[20.90,81.15]],
+  "Kanker":         [[20.65,81.10],[20.58,81.30],[20.50,81.50],[20.38,81.65],[20.18,81.72],[19.98,81.65],[19.85,81.48],[19.82,81.28],[19.90,81.10],[20.05,80.98],[20.22,80.92],[20.42,80.95],[20.55,81.02]],
+  "Bastar":         [[19.90,81.30],[19.95,81.55],[19.95,81.80],[19.85,82.05],[19.65,82.25],[19.40,82.35],[19.15,82.30],[18.90,82.15],[18.75,81.90],[18.72,81.65],[18.80,81.40],[18.95,81.20],[19.15,81.05],[19.40,80.98],[19.60,81.00],[19.78,81.10]],
 };
-const CG_CENTERS = {
-  "Surguja": [175, 52], "Korba": [155, 112], "Bilaspur": [215, 117], "Janjgir-Champa": [253, 163],
-  "Raipur": [192, 180], "Mahasamund": [250, 205], "Durg": [130, 170], "Rajnandgaon": [72, 180],
-  "Kawardha": [85, 112], "Dhamtari": [155, 232], "Kanker": [105, 262], "Bastar": [165, 315],
-};
+const CG_CENTER = [21.1, 81.85];
 
 function GeoMap({ dd, metric = "screeningRate", onAsk }) {
+  const mapRef = useRef(null);
+  const mapInst = useRef(null);
+  const layerRef = useRef(null);
   const [selected, setSelected] = useState(null);
   const [mapMetric, setMapMetric] = useState(metric);
+  const [mapReady, setMapReady] = useState(false);
+
   const getVal = (d) => {
     if (mapMetric === "screeningRate") return parseFloat(d.screeningRate);
     if (mapMetric === "drugAvailability") return parseFloat(d.drugAvailability);
@@ -454,43 +455,82 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     }
     return val > 65 ? "#059669" : val > 45 ? "#D97706" : "#991B1B";
   };
-  const getBg = (val) => {
+  const getFill = (val) => {
     if (mapMetric === "totalCases") {
       const t = maxV > minV ? (val - minV) / (maxV - minV) : 0;
       return t > 0.7 ? "#fee2e2" : t > 0.4 ? "#fef3c7" : "#f0fdf4";
     }
-    return val > 65 ? "#f0fdf4" : val > 45 ? "#fef3c7" : "#fee2e2";
+    return val > 65 ? "#dcfce7" : val > 45 ? "#fef9c3" : "#fee2e2";
   };
+
+  useEffect(() => {
+    if (!mapRef.current || mapInst.current) return;
+    const initMap = () => {
+      if (!window.L) return setTimeout(initMap, 150);
+      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 7);
+      // Try multiple tile providers
+      const tileOptions = [
+        { url: "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png", sub: "" },
+        { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", sub: "abcd" },
+        { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", sub: "abc" },
+      ];
+      const t = tileOptions[1];
+      window.L.tileLayer(t.url, { maxZoom: 12, minZoom: 5, opacity: 0.6, subdomains: t.sub || "abc" }).addTo(m);
+      window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
+      mapInst.current = m;
+      layerRef.current = window.L.layerGroup().addTo(m);
+      setMapReady(true);
+      setTimeout(() => m.invalidateSize(), 100);
+      setTimeout(() => m.invalidateSize(), 500);
+      setTimeout(() => m.invalidateSize(), 1000);
+    };
+    // Load Leaflet CSS + JS dynamically
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+    }
+    if (!window.L && !document.querySelector('script[src*="leaflet"]')) {
+      const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"; sc.onload = initMap; document.head.appendChild(sc);
+    } else { initMap(); }
+    return () => { if (mapInst.current) { mapInst.current.remove(); mapInst.current = null; layerRef.current = null; setMapReady(false); } };
+  }, []);
+
+  useEffect(() => {
+    if (!mapReady || !layerRef.current || !window.L) return;
+    layerRef.current.clearLayers();
+    dd.forEach(d => {
+      const coords = CG_GEO[d.name];
+      if (!coords) return;
+      const val = getVal(d);
+      const color = getColor(val);
+      const fill = getFill(val);
+      const isSel = selected === d.name;
+      const poly = window.L.polygon(coords, { color: isSel ? "#C2410C" : color, weight: isSel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.75, smoothFactor: 1.5 });
+      poly.on("click", () => setSelected(prev => prev === d.name ? null : d.name));
+      const center = poly.getBounds().getCenter();
+      const label = window.L.divIcon({
+        className: "", html: '<div style="text-align:center;pointer-events:none"><div style="font-size:10px;font-weight:700;color:#1F2937;text-shadow:0 0 3px #fff,0 0 3px #fff">' + d.name + '</div><div style="font-size:11px;font-weight:800;color:' + color + ';text-shadow:0 0 3px #fff,0 0 3px #fff">' + (mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%") + '</div></div>',
+        iconSize: [80, 30], iconAnchor: [40, 15],
+      });
+      window.L.marker(center, { icon: label, interactive: false }).addTo(layerRef.current);
+      poly.addTo(layerRef.current);
+    });
+  }, [dd, mapMetric, selected, mapReady]);
+
   const sData = selected ? dd.find(d => d.name === selected) : null;
   return <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <I.Map />
-        <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chhattisgarh — district map</span>
-      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}><I.Map /><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chhattisgarh — district map</span></div>
       <div className="ncd-filter-pills" style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
         {Object.keys(metricLabel).map(k => <button key={k} onClick={() => setMapMetric(k)} style={{ padding: "4px 10px", borderRadius: 6, border: mapMetric === k ? `1px solid ${P.accent}` : `1px solid ${P.border}`, background: mapMetric === k ? P.accentGlow : "none", color: mapMetric === k ? P.accent : P.textDim, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{metricLabel[k]}</button>)}
       </div>
     </div>
     <div style={{ position: "relative" }}>
-      <svg viewBox="30 0 280 380" style={{ width: "100%", maxWidth: 420, display: "block", margin: "0 auto" }}>
-        {dd.map(d => {
-          const path = CG_PATHS[d.name];
-          if (!path) return null;
-          const val = getVal(d);
-          const center = CG_CENTERS[d.name];
-          const isSel = selected === d.name;
-          return <g key={d.name} onClick={() => setSelected(isSel ? null : d.name)} style={{ cursor: "pointer" }}>
-            <path d={path} fill={getBg(val)} stroke={isSel ? P.accent : getColor(val)} strokeWidth={isSel ? 2.5 : 1} />
-            {center && <>
-              <text x={center[0]} y={center[1] - 6} textAnchor="middle" fontSize="7.5" fill={P.text} fontWeight="600" style={{ pointerEvents: "none" }}>{d.name}</text>
-              <text x={center[0]} y={center[1] + 5} textAnchor="middle" fontSize="8.5" fill={getColor(val)} fontWeight="700" style={{ pointerEvents: "none" }}>{mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%"}</text>
-            </>}
-          </g>;
-        })}
-      </svg>
-      {/* Detail card — bottom right overlay */}
-      {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 0, right: 0, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }}>
+      <div ref={mapRef} style={{ width: "100%", height: 480, borderRadius: 10, border: `1px solid ${P.border}`, zIndex: 1, position: "relative" }} />
+      {/* Recenter button */}
+      <button onClick={() => { if (mapInst.current) { mapInst.current.setView(CG_CENTER, 7); setSelected(null); } }} style={{ position: "absolute", top: 12, left: 55, zIndex: 1000, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: P.textMuted, fontFamily: "'DM Sans'", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }} onMouseEnter={e => e.currentTarget.style.color = P.accent} onMouseLeave={e => e.currentTarget.style.color = P.textMuted}>
+        <I.Target /> Reset view
+      </button>
+      {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 12, right: 12, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 1000 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{sData.name}</div>
           <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: P.textDim, fontSize: 14 }}>✕</button>
@@ -505,16 +545,14 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
         {onAsk && <div style={{ marginTop: 10 }}><AskAIBtn question={`Analyze ${sData.name} district — screening ${sData.screeningRate}%, drugs ${sData.drugAvailability}%, budget ${(sData.budgetUtilized*100).toFixed(0)}%, HR ${(sData.hrFilled*100).toFixed(0)}%. What are the key issues and recommended interventions?`} onAsk={onAsk} /></div>}
       </div>}
     </div>
-    {/* Legend */}
     <div style={{ display: "flex", gap: 16, fontSize: 10, color: P.textDim, marginTop: 12, justifyContent: "center" }}>
-      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#f0fdf4", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good (&gt;65%)</span>
-      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef3c7", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning (45-65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#dcfce7", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good (&gt;65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef9c3", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning (45-65%)</span>
       <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fee2e2", border: "1px solid #991B1B", marginRight: 4, verticalAlign: "middle" }} />Critical (&lt;45%)</span>
     </div>
     <div style={{ fontSize: 9, color: P.textDim, textAlign: "center", marginTop: 6 }}>Click a district to view details · Tap again to close</div>
   </div>;
 }
-
 // ─── Shared UI ───
 function Bar({ value, max = 100, color = P.accent, h = 6 }) {
   return <div style={{ width: "100%", height: h, background: P.border, borderRadius: h / 2, overflow: "hidden" }}><div style={{ width: `${Math.min(value / max * 100, 100)}%`, height: "100%", background: color, borderRadius: h / 2, transition: "width 0.8s ease" }} /></div>;
@@ -1687,6 +1725,7 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
   const send = useCallback(async () => {
     if (!inp.trim() || loading) return;
     const msg = inp.trim(); setInp("");
+    if (inpRef.current) inpRef.current.style.height = "auto";
     const next = [...msgs, { role: "user", content: msg }]; setMsgs(next); setLoading(true);
 
     const threadId = await ensureThread(msg);
@@ -1770,9 +1809,9 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
       </div>
       {msgs.length <= 1 && <div className="ncd-chat-sugg" style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
       <div className="ncd-chat-input" style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
-        <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px" }}>
-          <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
-          <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
+        <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px", alignItems: "flex-end" }}>
+          <textarea ref={inpRef} value={inp} onChange={e => { setInp(e.target.value); const el = e.target; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; }} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Ask about NCD data, trends, or get recommendations..." rows={1} style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", resize: "none", lineHeight: "1.5", maxHeight: 120, overflowY: "auto", padding: "8px 0" }} />
+          <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Send /></button>
         </div>
         {tokenLog.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
           <button onClick={() => setShowTokenLog(!showTokenLog)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: P.textDim, fontFamily: "'DM Sans'", display: "flex", alignItems: "center", gap: 4 }}>
