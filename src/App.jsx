@@ -437,6 +437,7 @@ function Donut({ data, size = 160 }) {
 
 function StackedBarChart({ data, height = 200 }) {
   const [hover, setHover] = useState(null);
+  const scrollRef = useRef(null);
 
   if (!Array.isArray(data) || data.length === 0) return null;
 
@@ -464,8 +465,18 @@ function StackedBarChart({ data, height = 200 }) {
 
   const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
+  // ✅ AUTO SCROLL TO LATEST (RIGHT)
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+    }
+  }, [grouped.length]);
+
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div
+      ref={scrollRef}
+      style={{ overflowX: "auto", overflowY: "visible" }}
+    >
       <div
         style={{
           display: "flex",
@@ -543,7 +554,7 @@ function StackedBarChart({ data, height = 200 }) {
         ))}
       </div>
 
-      {/* ✅ GLOBAL TOOLTIP (never clipped) */}
+      {/* tooltip */}
       {hover && (
         <div
           style={{
