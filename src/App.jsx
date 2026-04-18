@@ -1861,7 +1861,46 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
               })}
             </div>
           </div>
-        </div>;
+
+        {/* Correlation Explorer */}
+        <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Metric correlations</span><AskAIBtn question="What are the strongest correlations between NCD metrics like screening, HR, drugs, and budget? What insights can we draw?" onAsk={onAskAI} /></div>
+          {(() => {
+            const metrics = [
+              { key: "screeningRate", label: "Screening" },
+              { key: "drugAvailability", label: "Drugs" },
+              { key: "budgetUtilized", label: "Budget" },
+              { key: "hrFilled", label: "HR Fill" },
+            ];
+            const vals = (k) => fdd.map(d => k === "budgetUtilized" || k === "hrFilled" ? d[k] * 100 : parseFloat(d[k]) || 0);
+            const corr = (a, b) => {
+              const n = a.length; if (n < 3) return 0;
+              const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n;
+              let num = 0, da = 0, db = 0;
+              for (let i = 0; i < n; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; }
+              return da && db ? num / Math.sqrt(da * db) : 0;
+            };
+            const pairs = [];
+            for (let i = 0; i < metrics.length; i++) for (let j = i + 1; j < metrics.length; j++) {
+              const r = corr(vals(metrics[i].key), vals(metrics[j].key));
+              pairs.push({ a: metrics[i].label, b: metrics[j].label, r });
+            }
+            pairs.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+            const strength = (r) => Math.abs(r) > 0.7 ? "Strong" : Math.abs(r) > 0.4 ? "Moderate" : "Weak";
+            const sColor = (r) => Math.abs(r) > 0.7 ? P.green : Math.abs(r) > 0.4 ? P.amber : P.textDim;
+            return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+              {pairs.map((p, i) => <div key={i} style={{ padding: "12px 16px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: P.text }}>{p.a} × {p.b}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: sColor(p.r) }}>{p.r >= 0 ? "+" : ""}{p.r.toFixed(2)}</span>
+                </div>
+                <div style={{ height: 4, borderRadius: 2, background: P.surfaceAlt, overflow: "hidden" }}><div style={{ height: "100%", width: `${Math.abs(p.r) * 100}%`, borderRadius: 2, background: sColor(p.r) }} /></div>
+                <div style={{ fontSize: 10, color: P.textDim, marginTop: 4 }}>{strength(p.r)} {p.r >= 0 ? "positive" : "negative"}</div>
+              </div>)}
+            </div>;
+          })()}
+        </div>
+      </div>;
       })()}
 
       {/* Screening */}
