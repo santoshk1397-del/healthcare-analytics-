@@ -436,20 +436,16 @@ function Donut({ data, size = 160 }) {
 }
 
 function StackedBarChart({ data, height = 200 }) {
-  const [hover, setHover] = React.useState(null);
+  const [hover, setHover] = useState(null);
 
-  if (!Array.isArray(data) || data.length === 0) {
-    return (
-      <div style={{ padding: 20, textAlign: "center", color: "#6B7280" }}>
-        No data
-      </div>
-    );
-  }
+  // HARD GUARD
+  if (!Array.isArray(data)) return null;
 
-  // group by month
+  // GROUP SAFELY
   const map = {};
-  data.forEach(d => {
-    if (!d || !d.label) return;
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i];
+    if (!d || !d.label) continue;
 
     if (!map[d.label]) {
       map[d.label] = { label: d.label, diseases: {}, total: 0 };
@@ -462,11 +458,16 @@ function StackedBarChart({ data, height = 200 }) {
       (map[d.label].diseases[disease] || 0) + val;
 
     map[d.label].total += val;
-  });
+  }
 
   const grouped = Object.values(map);
 
-  const max = Math.max(...grouped.map(d => d.total), 1);
+  if (!grouped.length) return null;
+
+  const max = Math.max(
+    ...grouped.map(d => d.total || 0),
+    1
+  );
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -503,7 +504,6 @@ function StackedBarChart({ data, height = 200 }) {
                   borderRadius: 6,
                   padding: "6px 10px",
                   fontSize: 11,
-                  color: "#1F2937",
                   whiteSpace: "nowrap",
                   zIndex: 100,
                   boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
@@ -519,7 +519,7 @@ function StackedBarChart({ data, height = 200 }) {
 
             {/* total */}
             <div style={{ fontSize: 10, color: "#6B7280" }}>
-              {d.total}
+              {d.total || 0}
             </div>
 
             {/* stacked bar */}
@@ -534,20 +534,28 @@ function StackedBarChart({ data, height = 200 }) {
                 background: "#E5E7EB"
               }}
             >
-              {Object.entries(d.diseases).map(([dis, val], idx) => (
-                <div
-                  key={idx}
-                  onMouseEnter={() =>
-                    setHover({ month: d.label, disease: dis, value: val })
-                  }
-                  onMouseLeave={() => setHover(null)}
-                  style={{
-                    height: `${(val / max) * (height - 30)}px`,
-                    background: DC?.[dis] || "#C2410C",
-                    cursor: "pointer"
-                  }}
-                />
-              ))}
+              {Object.entries(d.diseases || {}).map(([dis, val], idx) => {
+                const h = (val / max) * (height - 30);
+
+                return (
+                  <div
+                    key={idx}
+                    onMouseEnter={() =>
+                      setHover({
+                        month: d.label,
+                        disease: dis,
+                        value: val
+                      })
+                    }
+                    onMouseLeave={() => setHover(null)}
+                    style={{
+                      height: isFinite(h) ? `${h}px` : "0px",
+                      background: (DC && DC[dis]) || "#C2410C",
+                      cursor: "pointer"
+                    }}
+                  />
+                );
+              })}
             </div>
 
             {/* label */}
