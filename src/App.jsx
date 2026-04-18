@@ -467,15 +467,15 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     if (!mapRef.current || mapInst.current) return;
     const initMap = () => {
       if (!window.L) return setTimeout(initMap, 150);
-      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 8);
-      // Try multiple tile providers — clean political-style maps
+      const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 7);
+      // Try multiple tile providers
       const tileOptions = [
+        { url: "https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png", sub: "" },
         { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", sub: "abcd" },
-        { url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", sub: "abcd" },
         { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", sub: "abc" },
       ];
-      const t = tileOptions[0];
-      window.L.tileLayer(t.url, { maxZoom: 12, minZoom: 6, opacity: 0.65, subdomains: t.sub }).addTo(m);
+      const t = tileOptions[1];
+      window.L.tileLayer(t.url, { maxZoom: 12, minZoom: 5, opacity: 0.6, subdomains: t.sub || "abc" }).addTo(m);
       window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
       mapInst.current = m;
       layerRef.current = window.L.layerGroup().addTo(m);
@@ -527,7 +527,7 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     <div style={{ position: "relative" }}>
       <div ref={mapRef} style={{ width: "100%", height: 480, borderRadius: 10, border: `1px solid ${P.border}`, zIndex: 1, position: "relative" }} />
       {/* Recenter button */}
-      <button onClick={() => { if (mapInst.current) { mapInst.current.setView(CG_CENTER, 8); setSelected(null); } }} style={{ position: "absolute", top: 12, left: 55, zIndex: 1000, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: P.textMuted, fontFamily: "'DM Sans'", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }} onMouseEnter={e => e.currentTarget.style.color = P.accent} onMouseLeave={e => e.currentTarget.style.color = P.textMuted}>
+      <button onClick={() => { if (mapInst.current) { mapInst.current.setView(CG_CENTER, 7); setSelected(null); } }} style={{ position: "absolute", top: 12, left: 55, zIndex: 1000, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: P.textMuted, fontFamily: "'DM Sans'", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }} onMouseEnter={e => e.currentTarget.style.color = P.accent} onMouseLeave={e => e.currentTarget.style.color = P.textMuted}>
         <I.Target /> Reset view
       </button>
       {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 12, right: 12, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 1000 }}>
