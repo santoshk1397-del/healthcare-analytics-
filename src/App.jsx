@@ -465,7 +465,7 @@ function StackedBarChart({ data, height = 200 }) {
   const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
   return (
-    <div style={{ overflowX: "auto", overflowY: "visible" }}>
+    <div style={{ overflowX: "auto" }}>
       <div
         style={{
           display: "flex",
@@ -482,36 +482,9 @@ function StackedBarChart({ data, height = 200 }) {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              width: 50,
-              position: "relative"
+              width: 50
             }}
           >
-            {/* tooltip */}
-            {hover && hover.month === d.label && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: -50, // ✅ renders above bar
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "#fff",
-                  border: "1px solid #E5E7EB",
-                  borderRadius: 6,
-                  padding: "6px 10px",
-                  fontSize: 11,
-                  whiteSpace: "nowrap",
-                  zIndex: 100,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  pointerEvents: "none"
-                }}
-              >
-                <div style={{ fontWeight: 600 }}>{hover.month}</div>
-                <div>
-                  {hover.disease}: <b>{hover.value}</b>
-                </div>
-              </div>
-            )}
-
             {/* total */}
             <div style={{ fontSize: 10, color: "#6B7280" }}>
               {d.total || 0}
@@ -535,12 +508,21 @@ function StackedBarChart({ data, height = 200 }) {
                 return (
                   <div
                     key={idx}
-                    onMouseEnter={() =>
+                    onMouseEnter={(e) =>
                       setHover({
+                        x: e.clientX,
+                        y: e.clientY,
                         month: d.label,
                         disease: dis,
                         value: val
                       })
+                    }
+                    onMouseMove={(e) =>
+                      setHover(prev =>
+                        prev
+                          ? { ...prev, x: e.clientX, y: e.clientY }
+                          : null
+                      )
                     }
                     onMouseLeave={() => setHover(null)}
                     style={{
@@ -560,6 +542,32 @@ function StackedBarChart({ data, height = 200 }) {
           </div>
         ))}
       </div>
+
+      {/* ✅ GLOBAL TOOLTIP (never clipped) */}
+      {hover && (
+        <div
+          style={{
+            position: "fixed",
+            top: hover.y - 50,
+            left: hover.x,
+            transform: "translateX(-50%)",
+            background: "#fff",
+            border: "1px solid #E5E7EB",
+            borderRadius: 6,
+            padding: "6px 10px",
+            fontSize: 11,
+            whiteSpace: "nowrap",
+            zIndex: 9999,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            pointerEvents: "none"
+          }}
+        >
+          <div style={{ fontWeight: 600 }}>{hover.month}</div>
+          <div>
+            {hover.disease}: <b>{hover.value}</b>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1241,7 +1249,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
           <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
-            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <StackedBarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} /> </div> </div> {/* Fix here for bar */}
+            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}>Disease Split<StackedBarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} /> </div> </div> {/* Fix here for bar */}
           </div>
         </div>}
       </div>}
