@@ -358,6 +358,72 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
   }));
 }
 
+function detectDataIssues(rows) {
+  if (!rows || rows.length === 0) return { issues: [], score: 0 };
+
+  const issues = [];
+  const totalChecks = [];
+  let passedChecks = 0;
+
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  const districts = [...new Set(rows.map(r => r.district_name))];
+  const diseases = [...new Set(rows.map(r => r.disease_type))];
+
+  // 1️⃣ Missing month data
+  districts.forEach(d => {
+    const districtRows = rows.filter(r => r.district_name === d);
+
+    months.forEach(m => {
+      const exists = districtRows.some(r => r.month === m);
+      totalChecks.push(1);
+
+      if (!exists) {
+        issues.push(`${d} has no data for ${m}`);
+      } else {
+        passedChecks++;
+      }
+    });
+  });
+
+  // 2️⃣ Disease zero-data check (quarter level)
+  districts.forEach(d => {
+    diseases.forEach(dis => {
+      const subset = rows.filter(r => r.district_name === d && r.disease_type === dis);
+
+      if (subset.length === 0) return;
+
+      const byQuarter = {
+        Q1: ["Apr","May","Jun"],
+        Q2: ["Jul","Aug","Sep"],
+        Q3: ["Oct","Nov","Dec"],
+        Q4: ["Jan","Feb","Mar"]
+      };
+
+      Object.entries(byQuarter).forEach(([q, ms]) => {
+        const qRows = subset.filter(r => ms.includes(r.month));
+        if (qRows.length === 0) return;
+
+        totalChecks.push(1);
+
+        const allZero = qRows.every(r => Number(r.cases || 0) === 0);
+
+        if (allZero) {
+          issues.push(`${d} ${dis} entries are all zero for ${q}`);
+        } else {
+          passedChecks++;
+        }
+      });
+    });
+  });
+
+  const score = totalChecks.length
+    ? Math.round((passedChecks / totalChecks.length) * 100)
+    : 100;
+
+  return { issues, score };
+}
+
 // ─── Palette ───
 const P = {
   // 🧱 BACKGROUNDS
@@ -934,7 +1000,7 @@ function Reports({ rawRows, role, onAskAI }) {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
-
+  const { issues, score } = detectDataIssues(rows);
   const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
   const { from: dateFrom, to: dateTo } = getDateRange(timeRange, customFrom, customTo);
   const fdd = aggregateRows(filteredRows, { district: fDistrict, dateFrom, dateTo }, filteredRows);
@@ -1455,6 +1521,81 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
       {/* Dashboard */}
       {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>State Dashboard</div>
+        <div
+  style={{
+    background: P.surface,
+    border: `1px solid ${P.border}`,
+    borderRadius: 10,
+    padding: "14px 16px",
+    marginBottom: 16,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    flexWrap: "wrap"
+  }}
+>
+  {/* LEFT: SCORE */}
+  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <div
+      style={{
+        width: 42,
+        height: 42,
+        borderRadius: "50%",
+        background:
+          score > 80 ? "#DCFCE7" :
+          score > 60 ? "#FEF9C3" :
+          "#FEE2E2",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        color:
+          score > 80 ? P.green :
+          score > 60 ? P.amber :
+          P.red
+      }}
+    >
+      {score}
+    </div>
+
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: P.text }}>
+        Data Quality Score
+      </div>
+      <div style={{ fontSize: 11, color: P.textDim }}>
+        Missing / zero-value detection
+      </div>
+    </div>
+  </div>
+
+  {/* RIGHT: ISSUES */}
+  <div style={{ flex: 1, minWidth: 220 }}>
+    {issues.length === 0 ? (
+      <div style={{ fontSize: 12, color: P.green }}>
+        ✅ No major data issues detected
+      </div>
+    ) : (
+      <div
+        style={{
+          fontSize: 11,
+          color: P.red,
+          maxHeight: 60,
+          overflow: "auto"
+        }}
+      >
+        {issues.slice(0, 3).map((i, idx) => (
+          <div key={idx}>⚠ {i}</div>
+        ))}
+        {issues.length > 3 && (
+          <div style={{ color: P.textDim }}>
+            +{issues.length - 3} more issues
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</div>
         {fb}
         <div className="ncd-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
           <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
