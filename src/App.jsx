@@ -883,19 +883,24 @@ function Heatmap({ dd }) {
 function Alerts({ dd, role }) {
   const alerts = [];
   const districts = role.allDistricts ? dd : dd.filter(d => d.name === role.district);
+  // Calculate state averages for relative alerting
+  const avgScr = districts.length > 0 ? districts.reduce((s, d) => s + parseFloat(d.screeningRate), 0) / districts.length : 50;
+  const avgDrug = districts.length > 0 ? districts.reduce((s, d) => s + parseFloat(d.drugAvailability), 0) / districts.length : 50;
   districts.forEach(d => {
     const scr = parseFloat(d.screeningRate), drug = parseFloat(d.drugAvailability), bud = d.budgetUtilized * 100, hr = d.hrFilled * 100;
-    if (scr < 40) alerts.push({ district: d.name, type: "critical", msg: `Screening coverage critically low at ${scr}%`, metric: "Screening", value: scr });
-    else if (scr < 55) alerts.push({ district: d.name, type: "warning", msg: `Screening coverage below target at ${scr}%`, metric: "Screening", value: scr });
-    if (drug < 40) alerts.push({ district: d.name, type: "critical", msg: `Drug availability critically low at ${drug}%`, metric: "Drugs", value: drug });
-    else if (drug < 60) alerts.push({ district: d.name, type: "warning", msg: `Drug availability below threshold at ${drug}%`, metric: "Drugs", value: drug });
-    if (bud < 35) alerts.push({ district: d.name, type: "critical", msg: `Budget utilization critically low at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
-    else if (bud < 55) alerts.push({ district: d.name, type: "warning", msg: `Budget underutilized at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
-    if (hr < 45) alerts.push({ district: d.name, type: "critical", msg: `HR positions severely understaffed at ${hr.toFixed(0)}%`, metric: "HR", value: hr });
-    else if (hr < 60) alerts.push({ district: d.name, type: "warning", msg: `HR fill rate low at ${hr.toFixed(0)}%`, metric: "HR", value: hr });
+    // Critical: bottom 10% absolute thresholds
+    if (scr < 30) alerts.push({ district: d.name, type: "critical", msg: `Screening critically low at ${scr}% (state avg: ${avgScr.toFixed(0)}%)`, metric: "Screening", value: scr });
+    else if (scr < 38 && scr < avgScr - 15) alerts.push({ district: d.name, type: "warning", msg: `Screening at ${scr}%, well below state avg of ${avgScr.toFixed(0)}%`, metric: "Screening", value: scr });
+    if (drug < 30) alerts.push({ district: d.name, type: "critical", msg: `Drug availability critically low at ${drug}%`, metric: "Drugs", value: drug });
+    else if (drug < 40 && drug < avgDrug - 15) alerts.push({ district: d.name, type: "warning", msg: `Drug availability low at ${drug}%, below state avg ${avgDrug.toFixed(0)}%`, metric: "Drugs", value: drug });
+    if (bud < 25) alerts.push({ district: d.name, type: "critical", msg: `Budget utilization critically low at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
+    else if (bud < 35) alerts.push({ district: d.name, type: "warning", msg: `Budget underutilized at ${bud.toFixed(0)}%`, metric: "Budget", value: bud });
+    if (hr < 35) alerts.push({ district: d.name, type: "critical", msg: `Severe staffing gap: only ${hr.toFixed(0)}% positions filled`, metric: "HR", value: hr });
+    else if (hr < 42) alerts.push({ district: d.name, type: "warning", msg: `Staffing low at ${hr.toFixed(0)}% fill rate`, metric: "HR", value: hr });
+    // Disease trends: only flag extreme spikes
     d.diseaseBreakdown.forEach(db => {
-      if (db.trend > 40) alerts.push({ district: d.name, type: "critical", msg: `${db.disease} cases spiking: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
-      else if (db.trend > 20) alerts.push({ district: d.name, type: "warning", msg: `${db.disease} cases rising: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
+      if (db.trend > 60) alerts.push({ district: d.name, type: "critical", msg: `${db.disease} cases surging: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
+      else if (db.trend > 40) alerts.push({ district: d.name, type: "warning", msg: `${db.disease} cases rising sharply: +${db.trend.toFixed(0)}% YoY`, metric: db.disease, value: db.trend });
     });
   });
   alerts.sort((a, b) => { if (a.type === "critical" && b.type !== "critical") return -1; if (a.type !== "critical" && b.type === "critical") return 1; return a.value - b.value; });
