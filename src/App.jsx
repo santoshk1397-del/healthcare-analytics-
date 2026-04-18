@@ -241,6 +241,7 @@ function getDiseaseMonthlyData(rows, district, dateFrom, dateTo) {
     )
     .map(r => ({
       label: formatMonth(r.month_date),
+      rawDate: r.month_date,
       disease: r.disease_type,
       cases: Number(r.cases || 0)
     }))
