@@ -1521,6 +1521,14 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
       {/* Dashboard */}
       {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>State Dashboard</div>
+        {fb}
+        <div className="ncd-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
+          <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
+          <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} sub={`Target: ${BENCHMARKS.screening.target}% · Nat: ${BENCHMARKS.screening.national_avg}%`} color={parseFloat(fst.avgScreening) >= BENCHMARKS.screening.target ? P.green : parseFloat(fst.avgScreening) >= BENCHMARKS.screening.national_avg ? P.amber : P.red} />
+          <KPI icon={I.Wallet} label="Budget Util." value={`${fst.avgBudgetUtil}%`} sub={`Target: ${BENCHMARKS.budget_utilization.target}% · Nat: ${BENCHMARKS.budget_utilization.national_avg}%`} color={parseFloat(fst.avgBudgetUtil) >= BENCHMARKS.budget_utilization.target ? P.green : parseFloat(fst.avgBudgetUtil) >= BENCHMARKS.budget_utilization.national_avg ? P.amber : P.red} />
+          <KPI icon={I.Pill} label="Drug Avail." value={`${fst.avgDrugAvail}%`} sub={`Target: ${BENCHMARKS.drug_availability.target}% · Nat: ${BENCHMARKS.drug_availability.national_avg}%`} color={parseFloat(fst.avgDrugAvail) >= BENCHMARKS.drug_availability.target ? P.green : parseFloat(fst.avgDrugAvail) >= BENCHMARKS.drug_availability.national_avg ? P.amber : P.red} />
+          <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} sub={`Target: ${BENCHMARKS.hr_fill.target}% · Nat: ${BENCHMARKS.hr_fill.national_avg}%`} color={parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.target ? P.green : parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.national_avg ? P.amber : P.red} />
+        </div>
         <div
   style={{
     background: P.surface,
@@ -1596,14 +1604,6 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
     )}
   </div>
 </div>
-        {fb}
-        <div className="ncd-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
-          <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
-          <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} sub={`Target: ${BENCHMARKS.screening.target}% · Nat: ${BENCHMARKS.screening.national_avg}%`} color={parseFloat(fst.avgScreening) >= BENCHMARKS.screening.target ? P.green : parseFloat(fst.avgScreening) >= BENCHMARKS.screening.national_avg ? P.amber : P.red} />
-          <KPI icon={I.Wallet} label="Budget Util." value={`${fst.avgBudgetUtil}%`} sub={`Target: ${BENCHMARKS.budget_utilization.target}% · Nat: ${BENCHMARKS.budget_utilization.national_avg}%`} color={parseFloat(fst.avgBudgetUtil) >= BENCHMARKS.budget_utilization.target ? P.green : parseFloat(fst.avgBudgetUtil) >= BENCHMARKS.budget_utilization.national_avg ? P.amber : P.red} />
-          <KPI icon={I.Pill} label="Drug Avail." value={`${fst.avgDrugAvail}%`} sub={`Target: ${BENCHMARKS.drug_availability.target}% · Nat: ${BENCHMARKS.drug_availability.national_avg}%`} color={parseFloat(fst.avgDrugAvail) >= BENCHMARKS.drug_availability.target ? P.green : parseFloat(fst.avgDrugAvail) >= BENCHMARKS.drug_availability.national_avg ? P.amber : P.red} />
-          <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} sub={`Target: ${BENCHMARKS.hr_fill.target}% · Nat: ${BENCHMARKS.hr_fill.national_avg}%`} color={parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.target ? P.green : parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.national_avg ? P.amber : P.red} />
-        </div>
         <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Disease Distribution</span><AskAIBtn question="Break down the disease distribution across all districts. Which diseases have the highest burden and why?" onAsk={onAskAI} /></div><Donut data={totDis} /></div>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22, overflow: "hidden" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Monthly Registrations</span><AskAIBtn question="Analyze the monthly registration trend. Are cases increasing or decreasing? What's driving the pattern?" onAsk={onAskAI} /></div><BarChart data={ts.map(t => ({ m: t.label, c: t.cases }))} lk="m" vk="c" h={180} /></div>
