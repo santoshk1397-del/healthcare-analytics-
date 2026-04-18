@@ -468,12 +468,21 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     const initMap = () => {
       if (!window.L) return setTimeout(initMap, 150);
       const m = window.L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true, attributionControl: false }).setView(CG_CENTER, 8);
-      window.L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 12, minZoom: 6, opacity: 0.7, subdomains: "abcd" }).addTo(m);
+      // Try multiple tile providers — clean political-style maps
+      const tileOptions = [
+        { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", sub: "abcd" },
+        { url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", sub: "abcd" },
+        { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", sub: "abc" },
+      ];
+      const t = tileOptions[0];
+      window.L.tileLayer(t.url, { maxZoom: 12, minZoom: 6, opacity: 0.65, subdomains: t.sub }).addTo(m);
       window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
       mapInst.current = m;
       layerRef.current = window.L.layerGroup().addTo(m);
       setMapReady(true);
-      setTimeout(() => m.invalidateSize(), 200);
+      setTimeout(() => m.invalidateSize(), 100);
+      setTimeout(() => m.invalidateSize(), 500);
+      setTimeout(() => m.invalidateSize(), 1000);
     };
     // Load Leaflet CSS + JS dynamically
     if (!document.querySelector('link[href*="leaflet"]')) {
@@ -516,7 +525,7 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
       </div>
     </div>
     <div style={{ position: "relative" }}>
-      <div ref={mapRef} style={{ width: "100%", height: 450, borderRadius: 10, border: `1px solid ${P.border}`, zIndex: 1 }} />
+      <div ref={mapRef} style={{ width: "100%", height: 480, borderRadius: 10, border: `1px solid ${P.border}`, zIndex: 1, position: "relative" }} />
       {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 12, right: 12, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.15)", zIndex: 1000 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{sData.name}</div>
