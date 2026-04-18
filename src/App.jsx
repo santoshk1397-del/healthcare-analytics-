@@ -438,10 +438,9 @@ function Donut({ data, size = 160 }) {
 function StackedBarChart({ data, height = 200 }) {
   const [hover, setHover] = useState(null);
 
-  // HARD GUARD
-  if (!Array.isArray(data)) return null;
+  if (!Array.isArray(data) || data.length === 0) return null;
 
-  // GROUP SAFELY
+  // group safely
   const map = {};
   for (let i = 0; i < data.length; i++) {
     const d = data[i];
@@ -461,16 +460,12 @@ function StackedBarChart({ data, height = 200 }) {
   }
 
   const grouped = Object.values(map);
-
   if (!grouped.length) return null;
 
-  const max = Math.max(
-    ...grouped.map(d => d.total || 0),
-    1
-  );
+  const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div style={{ overflowX: "auto", overflowY: "visible" }}>
       <div
         style={{
           display: "flex",
@@ -496,7 +491,7 @@ function StackedBarChart({ data, height = 200 }) {
               <div
                 style={{
                   position: "absolute",
-                  bottom: height - 10,
+                  top: -50, // ✅ renders above bar
                   left: "50%",
                   transform: "translateX(-50%)",
                   background: "#fff",
