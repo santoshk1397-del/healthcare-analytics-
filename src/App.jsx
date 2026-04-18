@@ -25,6 +25,33 @@ const SEVERITY = ["Mild", "Moderate", "Severe"];
 const GENDERS = ["Male", "Female", "Other"];
 const AGE_GROUPS = ["0-14", "15-29", "30-44", "45-59", "60+"];
 
+// ─── NPCDCS / NHM National Benchmarks ───
+// Sources: NPCDCS Operational Guidelines 2023-24, NHM Framework for Implementation,
+// WHO PEN Protocol, NPHCE targets, India Hypertension Control Initiative (IHCI)
+const BENCHMARKS = {
+  screening: { target: 65, label: "NPCDCS Target", national_avg: 52.3, source: "NPCDCS Operational Guidelines 2023-24" },
+  drug_availability: { target: 80, label: "NHM Essential Drug List", national_avg: 68.5, source: "NHM Drug Procurement Guidelines" },
+  budget_utilization: { target: 75, label: "NHM Financial Target", national_avg: 62.1, source: "NHM RoP 2023-24" },
+  hr_fill: { target: 80, label: "IPHS Staffing Norm", national_avg: 64.8, source: "IPHS Guidelines 2022" },
+  prevalence: {
+    Diabetes: { rate_per_lakh: 7700, label: "ICMR INDIAB Study", trend: "rising" },
+    Hypertension: { rate_per_lakh: 28900, label: "NFHS-5 / IHCI", trend: "rising" },
+    Cardiovascular: { rate_per_lakh: 5400, label: "GBD India 2021", trend: "stable" },
+    COPD: { rate_per_lakh: 5500, label: "BOLD India Study", trend: "stable" },
+    Cancer: { rate_per_lakh: 940, label: "ICMR NCDIR 2022", trend: "rising" },
+    Stroke: { rate_per_lakh: 1190, label: "ICMR Stroke Registry", trend: "stable" },
+  },
+  // State-level comparisons (latest available NHM data)
+  state_comparisons: [
+    { state: "Chhattisgarh", screening: 0, drug: 0, budget: 0, hr: 0 }, // will be filled from live data
+    { state: "Madhya Pradesh", screening: 48.2, drug: 62.0, budget: 58.5, hr: 58.0 },
+    { state: "Rajasthan", screening: 58.7, drug: 71.3, budget: 68.2, hr: 66.5 },
+    { state: "Odisha", screening: 55.1, drug: 65.8, budget: 64.0, hr: 61.2 },
+    { state: "Jharkhand", screening: 42.5, drug: 55.2, budget: 52.8, hr: 54.0 },
+    { state: "National Avg", screening: 52.3, drug: 68.5, budget: 62.1, hr: 64.8 },
+  ],
+};
+
 // ─── RBAC ───
 const ROLES = {
   admin: { label: "Admin", sections: ["reports", "chat", "ingest"], allDistricts: true },
@@ -523,7 +550,7 @@ function Reports({ rawRows, role }) {
   const ts = buildTimeSeries(rawRows, { district: fDistrict, dateFrom, dateTo });
 
   const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
-  const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
+  const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }, { id: "benchmarks", l: "Benchmarks" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
 
   // ── Shared export helpers ──
@@ -997,16 +1024,18 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
         </div>
       </div>
     </div>}
-    <div className="ncd-tab-bar" style={{ display: "flex", gap: 2, padding: "0 28px", borderBottom: `1px solid ${P.border}`, background: P.surface, overflowX: "visible", alignItems: "center" }}>
-      {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
-      <div style={{ marginLeft: "auto", padding: "0 4px", display: "flex", gap: 6, position: "relative", zIndex: 200 }}>
-        <button onClick={() => { setShowCompare(true); if (compareDistricts.length === 0 && fdd.length >= 2) setCompareDistricts([fdd[0].name, fdd[1].name]); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
-          <I.Activity /> Compare
+    <div style={{ display: "flex", borderBottom: `1px solid ${P.border}`, background: P.surface, alignItems: "center" }}>
+      <div className="ncd-tab-scroll" style={{ display: "flex", gap: 2, padding: "0 0 0 28px", overflowX: "auto", WebkitOverflowScrolling: "touch", flex: 1, minWidth: 0 }}>
+        {tabs.map(t => <button key={t.id} onClick={() => setTab(t.id)} className="ncd-tab-btn" style={{ padding: "12px 16px", background: "none", border: "none", color: tab === t.id ? P.accent : P.textDim, fontSize: 12, fontWeight: 600, cursor: "pointer", borderBottom: tab === t.id ? `2px solid ${P.accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", fontFamily: "'DM Sans'" }}>{t.l}</button>)}
+      </div>
+      <div style={{ padding: "0 12px", display: "flex", gap: 6, position: "relative", zIndex: 200, flexShrink: 0 }}>
+        <button className="ncd-action-btn" onClick={() => { setShowCompare(true); if (compareDistricts.length === 0 && fdd.length >= 2) setCompareDistricts([fdd[0].name, fdd[1].name]); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
+          <I.Activity /> <span className="ncd-btn-label">Compare</span>
         </button>
-        <button onClick={() => setShowExportMenu(!showExportMenu)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
-          <I.Download /> Export ▾
+        <button className="ncd-action-btn" onClick={() => setShowExportMenu(!showExportMenu)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, color: P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>
+          <I.Download /> <span className="ncd-btn-label">Export ▾</span>
         </button>
-        {showExportMenu && <div style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 9999, minWidth: 200, overflow: "hidden" }}>
+        {showExportMenu && <div className="ncd-export-menu" style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, background: P.surface, border: `1px solid ${P.border}`, borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 9999, minWidth: 200, overflow: "hidden" }}>
           <button onClick={() => { exportSummary(); setShowExportMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "12px 16px", border: "none", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: P.text, fontFamily: "'DM Sans'", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = P.surfaceAlt} onMouseLeave={e => e.currentTarget.style.background = "none"}>
             <I.Report /> Summary Report
             <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>Tables</span>
@@ -1032,10 +1061,10 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
         {fb}
         <div className="ncd-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
           <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
-          <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} color={P.green} />
-          <KPI icon={I.Wallet} label="Budget Util." value={`${fst.avgBudgetUtil}%`} sub={`₹${(fst.totalBudget / 1e7).toFixed(0)} Cr`} color={P.purple} />
-          <KPI icon={I.Pill} label="Drug Avail." value={`${fst.avgDrugAvail}%`} color={P.amber} />
-          <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} color={P.blue} />
+          <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} sub={`Target: ${BENCHMARKS.screening.target}% · Nat: ${BENCHMARKS.screening.national_avg}%`} color={parseFloat(fst.avgScreening) >= BENCHMARKS.screening.target ? P.green : parseFloat(fst.avgScreening) >= BENCHMARKS.screening.national_avg ? P.amber : P.red} />
+          <KPI icon={I.Wallet} label="Budget Util." value={`${fst.avgBudgetUtil}%`} sub={`Target: ${BENCHMARKS.budget_utilization.target}% · Nat: ${BENCHMARKS.budget_utilization.national_avg}%`} color={parseFloat(fst.avgBudgetUtil) >= BENCHMARKS.budget_utilization.target ? P.green : parseFloat(fst.avgBudgetUtil) >= BENCHMARKS.budget_utilization.national_avg ? P.amber : P.red} />
+          <KPI icon={I.Pill} label="Drug Avail." value={`${fst.avgDrugAvail}%`} sub={`Target: ${BENCHMARKS.drug_availability.target}% · Nat: ${BENCHMARKS.drug_availability.national_avg}%`} color={parseFloat(fst.avgDrugAvail) >= BENCHMARKS.drug_availability.target ? P.green : parseFloat(fst.avgDrugAvail) >= BENCHMARKS.drug_availability.national_avg ? P.amber : P.red} />
+          <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} sub={`Target: ${BENCHMARKS.hr_fill.target}% · Nat: ${BENCHMARKS.hr_fill.national_avg}%`} color={parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.target ? P.green : parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.national_avg ? P.amber : P.red} />
         </div>
         <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Disease Distribution</div><Donut data={totDis} /></div>
@@ -1068,6 +1097,108 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
         {fb}
         <div className="ncd-heatmap-scroll"><Heatmap dd={fdd} /></div>
       </div>}
+
+      {/* Benchmarks */}
+      {tab === "benchmarks" && (() => {
+        const stateScr = parseFloat(fst.avgScreening), stateDrug = parseFloat(fst.avgDrugAvail), stateBud = parseFloat(fst.avgBudgetUtil), stateHr = parseFloat(fst.avgHrFill);
+        const stateComps = BENCHMARKS.state_comparisons.map(s => s.state === "Chhattisgarh" ? { ...s, screening: stateScr, drug: stateDrug, budget: stateBud, hr: stateHr } : s);
+        const gapColor = (val, target) => val >= target ? P.green : val >= target * 0.7 ? P.amber : P.red;
+        const gapLabel = (val, target) => val >= target ? "On track" : val >= target * 0.7 ? "Below target" : "Critical gap";
+        const metrics = [
+          { key: "screening", label: "Screening Coverage", val: stateScr, bm: BENCHMARKS.screening },
+          { key: "drug", label: "Drug Availability", val: stateDrug, bm: BENCHMARKS.drug_availability },
+          { key: "budget", label: "Budget Utilization", val: stateBud, bm: BENCHMARKS.budget_utilization },
+          { key: "hr", label: "HR Fill Rate", val: stateHr, bm: BENCHMARKS.hr_fill },
+        ];
+        return <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>NPCDCS Peer Benchmarking</div><div style={{ fontSize: 12, color: P.textDim, marginTop: 4 }}>Chhattisgarh vs national targets, peer states, and NPCDCS/WHO standards</div></div>
+          {fb}
+          {/* Gap cards */}
+          <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {metrics.map(m => {
+              const gap = m.val - m.bm.target;
+              const col = gapColor(m.val, m.bm.target);
+              return <div key={m.key} className="ncd-bm-card" style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18, borderLeft: `3px solid ${col}`, borderRadius: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{m.label}</div>
+                  <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 12, background: `${col}15`, color: col, fontWeight: 700 }}>{gapLabel(m.val, m.bm.target)}</span>
+                </div>
+                <div className="ncd-bm-val-row" style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
+                  <span className="ncd-bm-val" style={{ fontSize: 28, fontWeight: 800, color: col }}>{m.val.toFixed(1)}%</span>
+                  <span style={{ fontSize: 12, color: P.textDim }}>vs target <b style={{ color: P.text }}>{m.bm.target}%</b></span>
+                  <span style={{ fontSize: 12, color: gap >= 0 ? P.green : P.red, fontWeight: 700 }}>{gap >= 0 ? "+" : ""}{gap.toFixed(1)}pp</span>
+                </div>
+                <div style={{ height: 8, background: P.border, borderRadius: 4, position: "relative", marginBottom: 8 }}>
+                  <div style={{ height: 8, borderRadius: 4, background: col, width: `${Math.min(m.val, 100)}%` }} />
+                  <div style={{ position: "absolute", left: `${m.bm.target}%`, top: -3, width: 2, height: 14, background: P.text, borderRadius: 1 }} />
+                  <div style={{ position: "absolute", left: `${m.bm.national_avg}%`, top: -2, width: 1, height: 12, background: P.textDim, borderRadius: 1, borderStyle: "dashed" }} />
+                </div>
+                <div className="ncd-bm-source" style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: P.textDim, flexWrap: "wrap", gap: 2 }}>
+                  <span>National avg: {m.bm.national_avg}%</span>
+                  <span>{m.bm.source}</span>
+                </div>
+              </div>;
+            })}
+          </div>
+          {/* State comparison table */}
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 4 }}>Peer state comparison</div>
+            <div style={{ fontSize: 11, color: P.textDim, marginBottom: 14 }}>Source: NHM State Health Profiles, NRHM HMIS</div>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <table style={{ width: "100%", minWidth: 500, borderCollapse: "collapse", fontSize: 12 }}>
+                <thead><tr>{["State", "Screening %", "Drug Avail %", "Budget Util %", "HR Fill %"].map((h, i) => <th key={h} style={{ padding: "10px 14px", textAlign: i === 0 ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 10, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
+                <tbody>{stateComps.map((s, si) => {
+                  const isCG = s.state === "Chhattisgarh";
+                  const isNat = s.state === "National Avg";
+                  const rowBg = isCG ? P.accentGlow : "transparent";
+                  const cellStyle = (val, bmKey) => {
+                    const target = BENCHMARKS[bmKey]?.target || 65;
+                    const color = val >= target ? P.green : val >= target * 0.7 ? P.amber : P.red;
+                    return { padding: "10px 14px", textAlign: "right", fontWeight: isCG || isNat ? 700 : 400, color: isCG ? color : isNat ? P.text : P.textMuted, borderBottom: `1px solid ${P.border}` };
+                  };
+                  return <tr key={s.state} style={{ background: rowBg }}>
+                    <td style={{ padding: "10px 14px", fontWeight: isCG || isNat ? 700 : 500, color: isCG ? P.accent : isNat ? P.text : P.text, borderBottom: `1px solid ${P.border}` }}>{s.state}{isCG ? " ★" : ""}</td>
+                    <td style={cellStyle(s.screening, "screening")}>{s.screening.toFixed(1)}%</td>
+                    <td style={cellStyle(s.drug, "drug_availability")}>{s.drug.toFixed(1)}%</td>
+                    <td style={cellStyle(s.budget, "budget_utilization")}>{s.budget.toFixed(1)}%</td>
+                    <td style={cellStyle(s.hr, "hr_fill")}>{s.hr.toFixed(1)}%</td>
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>
+          </div>
+          {/* Disease prevalence vs national */}
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 4 }}>Disease prevalence vs national estimates</div>
+            <div style={{ fontSize: 11, color: P.textDim, marginBottom: 14 }}>State prevalence calculated from data; national from ICMR/NFHS/GBD studies</div>
+            <div className="ncd-2col ncd-bm-disease" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {DISEASES.map(dis => {
+                const stateCases = fdd.reduce((s, d) => s + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0);
+                const statePrev = fst.totalPopulation > 0 ? (stateCases / fst.totalPopulation * 100000).toFixed(0) : 0;
+                const natPrev = BENCHMARKS.prevalence[dis]?.rate_per_lakh || 0;
+                const ratio = natPrev > 0 ? (statePrev / natPrev * 100).toFixed(0) : "—";
+                const trend = BENCHMARKS.prevalence[dis]?.trend || "stable";
+                const trendCol = trend === "rising" ? P.red : P.green;
+                return <div key={dis} style={{ background: P.bg, border: `1px solid ${P.border}`, borderRadius: 8, padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: DC[dis] }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: P.text }}>{dis}</span>
+                      <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: `${trendCol}15`, color: trendCol, fontWeight: 600 }}>{trend}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: P.textDim }}>{BENCHMARKS.prevalence[dis]?.label}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 11, color: P.textDim }}>State: <b style={{ color: P.text }}>{Number(statePrev).toLocaleString()}</b>/L</div>
+                    <div style={{ fontSize: 11, color: P.textDim }}>National: <b style={{ color: P.text }}>{natPrev.toLocaleString()}</b>/L</div>
+                    <div style={{ fontSize: 10, color: Number(ratio) > 100 ? P.red : P.green, fontWeight: 700 }}>{ratio}% of national</div>
+                  </div>
+                </div>;
+              })}
+            </div>
+          </div>
+        </div>;
+      })()}
 
       {/* Screening */}
       {tab === "screening" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1234,7 +1365,7 @@ function Chat({ dd, st, rawRows }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials.\n\nDATASET:\n${ctx}\n\nAPPROACH:\n1. ALWAYS analyze data above first. Cite specific numbers.\n2. For "why" questions, show the trend then explain causes from public health knowledge.\n3. For interventions, reference WHO/NPCDCS evidence combined with local data.\n4. For gap analysis, compare against state averages and national benchmarks.\n5. Be concise but thorough. Bullet points for clarity.\n\nAUDIENCE: Senior government officials. Professional, actionable, data-driven.`,
+          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials.\n\nDATASET:\n${ctx}\n\nNATIONAL BENCHMARKS (NPCDCS/NHM/WHO):\nScreening target: ${BENCHMARKS.screening.target}% (national avg: ${BENCHMARKS.screening.national_avg}%) — ${BENCHMARKS.screening.source}\nDrug availability target: ${BENCHMARKS.drug_availability.target}% (national avg: ${BENCHMARKS.drug_availability.national_avg}%) — ${BENCHMARKS.drug_availability.source}\nBudget utilization target: ${BENCHMARKS.budget_utilization.target}% (national avg: ${BENCHMARKS.budget_utilization.national_avg}%) — ${BENCHMARKS.budget_utilization.source}\nHR fill target: ${BENCHMARKS.hr_fill.target}% (national avg: ${BENCHMARKS.hr_fill.national_avg}%) — ${BENCHMARKS.hr_fill.source}\n\nPEER STATES: Madhya Pradesh (Scr:48.2%), Rajasthan (58.7%), Odisha (55.1%), Jharkhand (42.5%)\n\nDISEASE NATIONAL PREVALENCE (per lakh): Diabetes:7700, Hypertension:28900, CVD:5400, COPD:5500, Cancer:940, Stroke:1190\n\nAPPROACH:\n1. ALWAYS analyze data above first. Cite specific numbers.\n2. Compare metrics against NPCDCS targets and national averages. Say "X district is at Y% vs national target of Z%".\n3. When comparing, reference peer states: "Chhattisgarh screening at X% is below Rajasthan (58.7%) but above Jharkhand (42.5%)".\n4. For disease analysis, compare state prevalence against national ICMR/NFHS estimates.\n5. For interventions, reference WHO PEN Protocol, NPCDCS guidelines, IHCI for hypertension.\n6. Be concise but thorough. Bullet points for clarity.\n\nAUDIENCE: Senior government officials. Professional, actionable, data-driven. Always cite the benchmark source.`,
           messages: apiMsgs,
         }),
       });
@@ -1882,7 +2013,15 @@ export default function App() {
   .ncd-disease-grid{grid-template-columns:1fr!important}
   .ncd-budget-grid{grid-template-columns:1fr!important}
   .ncd-screening-grid{grid-template-columns:1fr!important}
-  .ncd-tab-bar{padding:0 10px!important}
+  .ncd-tab-scroll{padding:0 4px 0 8px!important}
+  .ncd-tab-btn{padding:10px 8px!important;font-size:10px!important}
+  .ncd-action-btn{padding:6px 8px!important;font-size:10px!important}
+  .ncd-action-btn span.ncd-btn-label{display:none!important}
+  .ncd-export-menu{position:fixed!important;right:8px!important;top:auto!important}
+  .ncd-bm-val-row{flex-wrap:wrap!important;gap:4px!important}
+  .ncd-bm-val{font-size:22px!important}
+  .ncd-bm-card{padding:14px!important}
+  .ncd-bm-disease{grid-template-columns:1fr!important}
   .ncd-filter-bar{flex-direction:column!important;align-items:stretch!important;gap:8px!important}
   .ncd-filter-pills{flex-wrap:wrap!important}
   .ncd-filter-pill{padding:4px 8px!important;font-size:10px!important}
