@@ -438,7 +438,7 @@ function Donut({ data, size = 160 }) {
 function StackedBarChart({ data, height = 200 }) {
   const [hover, setHover] = useState(null);
   const scrollRef = useRef(null);
-  const contentRef = useRef(null);
+  const lastBarRef = useRef(null);
 
   if (!Array.isArray(data) || data.length === 0) return null;
 
@@ -466,22 +466,15 @@ function StackedBarChart({ data, height = 200 }) {
 
   const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
-  // ✅ REAL FIX — scroll using actual content width
+  // ✅ RELIABLE SCROLL — anchor to last bar
   useEffect(() => {
-    const scrollEl = scrollRef.current;
-    const contentEl = contentRef.current;
-    if (!scrollEl || !contentEl) return;
-
-    const scrollToEnd = () => {
-      // use content width, not scrollWidth guess
-      scrollEl.scrollLeft = contentEl.offsetWidth;
-    };
-
-    // run after layout
-    requestAnimationFrame(scrollToEnd);
-    setTimeout(scrollToEnd, 100);
-    setTimeout(scrollToEnd, 300); // mobile stabilization
-
+    if (lastBarRef.current) {
+      lastBarRef.current.scrollIntoView({
+        behavior: "auto",
+        inline: "end",
+        block: "nearest"
+      });
+    }
   }, [grouped.length]);
 
   return (
@@ -494,7 +487,6 @@ function StackedBarChart({ data, height = 200 }) {
       }}
     >
       <div
-        ref={contentRef}
         style={{
           display: "flex",
           alignItems: "flex-end",
@@ -503,72 +495,75 @@ function StackedBarChart({ data, height = 200 }) {
           minWidth: grouped.length * 60
         }}
       >
-        {grouped.map((d, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              width: 50
-            }}
-          >
-            {/* total */}
-            <div style={{ fontSize: 10, color: "#6B7280" }}>
-              {d.total || 0}
-            </div>
+        {grouped.map((d, i) => {
+          const isLast = i === grouped.length - 1;
 
-            {/* stacked bar */}
+          return (
             <div
+              key={i}
+              ref={isLast ? lastBarRef : null} // 👈 anchor here
               style={{
-                width: 28,
-                height: height - 30,
                 display: "flex",
-                flexDirection: "column-reverse",
-                borderRadius: 4,
-                overflow: "hidden",
-                background: "#E5E7EB"
+                flexDirection: "column",
+                alignItems: "center",
+                width: 50
               }}
             >
-              {Object.entries(d.diseases || {}).map(([dis, val], idx) => {
-                const h = (val / max) * (height - 30);
+              {/* total */}
+              <div style={{ fontSize: 10, color: "#6B7280" }}>
+                {d.total || 0}
+              </div>
 
-                return (
-                  <div
-                    key={idx}
-                    onMouseEnter={(e) =>
-                      setHover({
-                        x: e.clientX,
-                        y: e.clientY,
-                        month: d.label,
-                        disease: dis,
-                        value: val
-                      })
-                    }
-                    onMouseMove={(e) =>
-                      setHover(prev =>
-                        prev
-                          ? { ...prev, x: e.clientX, y: e.clientY }
-                          : null
-                      )
-                    }
-                    onMouseLeave={() => setHover(null)}
-                    style={{
-                      height: isFinite(h) ? `${h}px` : "0px",
-                      background: (DC && DC[dis]) || "#C2410C",
-                      cursor: "pointer"
-                    }}
-                  />
-                );
-              })}
-            </div>
+              {/* stacked bar */}
+              <div
+                style={{
+                  width: 28,
+                  height: height - 30,
+                  display: "flex",
+                  flexDirection: "column-reverse",
+                  borderRadius: 4,
+                  overflow: "hidden",
+                  background: "#E5E7EB"
+                }}
+              >
+                {Object.entries(d.diseases || {}).map(([dis, val], idx) => {
+                  const h = (val / max) * (height - 30);
 
-            {/* label */}
-            <div style={{ fontSize: 10, marginTop: 4 }}>
-              {d.label}
+                  return (
+                    <div
+                      key={idx}
+                      onMouseEnter={(e) =>
+                        setHover({
+                          x: e.clientX,
+                          y: e.clientY,
+                          month: d.label,
+                          disease: dis,
+                          value: val
+                        })
+                      }
+                      onMouseMove={(e) =>
+                        setHover(prev =>
+                          prev ? { ...prev, x: e.clientX, y: e.clientY } : null
+                        )
+                      }
+                      onMouseLeave={() => setHover(null)}
+                      style={{
+                        height: isFinite(h) ? `${h}px` : "0px",
+                        background: (DC && DC[dis]) || "#C2410C",
+                        cursor: "pointer"
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* label */}
+              <div style={{ fontSize: 10, marginTop: 4 }}>
+                {d.label}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* tooltip */}
