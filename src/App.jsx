@@ -930,7 +930,7 @@ function Reports({ rawRows, role, onAskAI }) {
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
   const [fDisease, setFDisease] = useState("all");
-  const [timeRange, setTimeRange] = useState("all");
+  const [timeRange, setTimeRange] = useState("12m");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
