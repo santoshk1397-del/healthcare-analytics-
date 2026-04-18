@@ -930,7 +930,7 @@ function Reports({ rawRows, role, onAskAI }) {
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
   const [fDisease, setFDisease] = useState("all");
-  const [timeRange, setTimeRange] = useState("12m");
+  const [timeRange, setTimeRange] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
@@ -1499,13 +1499,21 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
     <div className="ncd-reports-pad" style={{ flex: 1, overflow: "auto", padding: 28 }}>
 
       {/* Data Quality Strip */}
-      {rawRows.length > 0 && <div onClick={() => setShowDQModal(true)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 16px", marginBottom: 16, borderRadius: 8, cursor: "pointer", background: dqIssues.length === 0 ? "#f0fdf4" : dqIssues.some(i => i.severity === "critical") ? "#fef2f2" : "#fffbeb", border: `1px solid ${dqIssues.length === 0 ? "#bbf7d0" : dqIssues.some(i => i.severity === "critical") ? "#fecaca" : "#fde68a"}`, transition: "all 0.15s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.85"} onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: dqIssues.length === 0 ? P.green : dqIssues.some(i => i.severity === "critical") ? P.red : P.amber, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: dqIssues.length === 0 ? "#166534" : dqIssues.some(i => i.severity === "critical") ? "#991B1B" : "#92400e" }}>
-          {dqIssues.length === 0 ? "Data quality: All checks passed" : `Data quality: ${dqIssues.filter(i => i.severity === "critical").length} critical, ${dqIssues.filter(i => i.severity === "warning").length} warnings`}
-        </span>
-        <span style={{ fontSize: 10, color: P.textDim, marginLeft: "auto" }}>{dqIssues.length > 0 ? "View details →" : `${rawRows.length.toLocaleString()} rows · ${districtNames.length} districts`}</span>
-      </div>}
+      {rawRows.length > 0 && (() => {
+        const crit = dqIssues.filter(i => i.severity === "critical").length;
+        const warn = dqIssues.filter(i => i.severity === "warning").length;
+        const grade = crit === 0 && warn === 0 ? "A" : crit === 0 && warn <= 5 ? "B" : crit === 0 ? "C" : crit <= 3 ? "D" : "F";
+        const gradeColor = { A: P.green, B: "#059669", C: P.amber, D: "#D97706", F: P.red }[grade];
+        const gradeLabel = { A: "Excellent", B: "Good", C: "Fair", D: "Poor", F: "Critical" }[grade];
+        return <div onClick={() => setShowDQModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 6px 4px 4px", marginBottom: 14, borderRadius: 20, cursor: "pointer", background: P.surfaceAlt, border: `1px solid ${P.border}`, fontSize: 11, transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; }}>
+          <span style={{ fontWeight: 500, color: P.textDim, marginLeft: 4 }}>Data Quality</span>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: `${gradeColor}18`, color: gradeColor, fontSize: 11, fontWeight: 800 }}>{grade}</span>
+          <span style={{ fontWeight: 600, color: P.text }}>{gradeLabel}</span>
+          {dqIssues.length > 0 && <><span style={{ color: P.textDim }}>·</span><span style={{ color: P.textMuted }}>{dqIssues.length} issue{dqIssues.length !== 1 ? "s" : ""}</span></>}
+          <span style={{ color: P.textDim }}>·</span>
+          <span style={{ color: P.textDim, textDecoration: "underline", marginRight: 4 }}>Details</span>
+        </div>;
+      })()}
 
       {/* Data Quality Modal */}
       {showDQModal && <div onClick={e => { if (e.target === e.currentTarget) setShowDQModal(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 10000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 20px", overflow: "auto" }}>
