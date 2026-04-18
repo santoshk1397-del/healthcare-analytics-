@@ -465,32 +465,41 @@ function StackedBarChart({ data, height = 200 }) {
 
   const max = Math.max(...grouped.map(d => d.total || 0), 1);
 
-  // ✅ BULLETPROOF AUTO SCROLL (mobile-safe)
+  // ✅ MOBILE-PROOF AUTO SCROLL
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    let tries = 0;
+    let attempts = 0;
 
-    const scrollToEnd = () => {
+    const forceScroll = () => {
       if (!el) return;
 
+      // force reflow (mobile fix)
+      el.style.transform = "translateZ(0)";
+
+      // scroll to end
       el.scrollLeft = el.scrollWidth;
 
-      // keep trying until layout stabilizes
-      if (tries < 6) {
-        tries++;
-        requestAnimationFrame(scrollToEnd);
+      attempts++;
+
+      if (attempts < 10) {
+        setTimeout(forceScroll, 50);
       }
     };
 
-    requestAnimationFrame(scrollToEnd);
+    setTimeout(forceScroll, 100);
   }, [grouped.length]);
 
   return (
     <div
       ref={scrollRef}
-      style={{ overflowX: "auto", overflowY: "visible" }}
+      style={{
+        overflowX: "auto",
+        overflowY: "visible",
+        WebkitOverflowScrolling: "touch",
+        scrollBehavior: "auto"
+      }}
     >
       <div
         style={{
