@@ -1041,10 +1041,10 @@ function Reports({ rawRows, role, onAskAI }) {
       const curr = getMonthRows(latestMonth), prev = getMonthRows(prevMonth);
       if (!curr.length || !prev.length) return;
 
-      // Cases change
+      // Cases change (only if absolute diff > 20)
       const currCases = curr.reduce((s, r) => s + (Number(r.cases) || 0), 0);
       const prevCases = prev.reduce((s, r) => s + (Number(r.cases) || 0), 0);
-      if (prevCases > 0) {
+      if (prevCases > 0 && Math.abs(currCases - prevCases) > 20) {
         const pct = ((currCases - prevCases) / prevCases) * 100;
         if (pct > 25) results.push({ district: dist, metric: "Cases", direction: "up", pct: pct.toFixed(0), from: prevCases, to: currCases, period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: pct > 40 ? "critical" : "warning" });
         else if (pct < -25) results.push({ district: dist, metric: "Cases", direction: "down", pct: pct.toFixed(0), from: prevCases, to: currCases, period: `${fmtYM(prevMonth)} → ${fmtYM(latestMonth)}`, severity: "info" });
