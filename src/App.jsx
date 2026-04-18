@@ -439,29 +439,43 @@ function StackedBarChart({ data, height = 200 }) {
   const containerRef = useRef(null);
   const [barW, setBarW] = useState(40);
 
-  // calculate dynamic width
+  // 👉 group data by month
+  const grouped = useMemo(() => {
+    const map = {};
+
+    data.forEach(d => {
+      const key = d.label;
+
+      if (!map[key]) {
+        map[key] = { label: key, diseases: {}, total: 0 };
+      }
+
+      map[key].diseases[d.disease] =
+        (map[key].diseases[d.disease] || 0) + Number(d.cases || 0);
+
+      map[key].total += Number(d.cases || 0);
+    });
+
+    return Object.values(map);
+  }, [data]);
+
+  // 👉 dynamic width
   useEffect(() => {
     if (containerRef.current) {
       const w = containerRef.current.offsetWidth;
-      setBarW(Math.floor((w - 8) / Math.min(data.length, 12)) - 3);
+      setBarW(Math.floor((w - 8) / Math.min(grouped.length, 12)) - 3);
     }
-  }, [data]);
+  }, [grouped]);
 
-  // auto scroll to latest
+  // 👉 auto scroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
     }
-  }, [data, barW]);
+  }, [grouped, barW]);
 
-  // max total per month (for scaling)
-  const max = Math.max(
-    ...data.map(d =>
-      Object.values(d.diseases || {}).reduce((a, b) => a + b, 0)
-    ),
-    1
-  );
-
+  // 👉 max for scaling
+  const max = Math.max(...grouped.map(d => d.total), 1);
   const bw = Math.max(barW, 28);
 
   return (
@@ -469,8 +483,7 @@ function StackedBarChart({ data, height = 200 }) {
       <div
         ref={scrollRef}
         style={{
-          overflowX: data.length > 12 ? "auto" : "hidden",
-          overflowY: "hidden",
+          overflowX: grouped.length > 12 ? "auto" : "hidden",
           width: "100%"
         }}
       >
@@ -482,81 +495,60 @@ function StackedBarChart({ data, height = 200 }) {
             height,
             padding: "0 4px",
             width:
-              data.length > 12
-                ? data.length * (bw + 4) + 8
+              grouped.length > 12
+                ? grouped.length * (bw + 4) + 8
                 : "100%"
           }}
         >
-          {data.map((d, i) => {
-            const total = Object.values(d.diseases || {}).reduce(
-              (a, b) => a + b,
-              0
-            );
+          {grouped.map((d, i) => (
+            <div
+              key={i}
+              style={{
+                flex: grouped.length <= 12 ? 1 : "none",
+                width: grouped.length > 12 ? bw : undefined,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 4
+              }}
+            >
+              {/* total */}
+              <div style={{ fontSize: 9, color: P.textDim, fontWeight: 600 }}>
+                {d.total >= 1000 ? (d.total / 1000).toFixed(0) + "k" : d.total}
+              </div>
 
-            return (
+              {/* stacked bar */}
               <div
-                key={i}
                 style={{
-                  flex: data.length <= 12 ? 1 : "none",
-                  width: data.length > 12 ? bw : undefined,
+                  width: "70%",
+                  maxWidth: 32,
+                  height: height - 28,
                   display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4
+                  flexDirection: "column-reverse",
+                  overflow: "hidden",
+                  borderRadius: "4px 4px 2px 2px",
+                  background: P.surfaceAlt
                 }}
               >
-                {/* total label */}
-                <div
-                  style={{
-                    fontSize: 9,
-                    color: P.textDim,
-                    fontWeight: 600
-                  }}
-                >
-                  {total >= 1000
-                    ? (total / 1000).toFixed(0) + "k"
-                    : total}
-                </div>
-
-                {/* stacked bar */}
-                <div
-                  style={{
-                    width: "70%",
-                    maxWidth: 32,
-                    height: height - 28,
-                    display: "flex",
-                    flexDirection: "column-reverse",
-                    borderRadius: "4px 4px 2px 2px",
-                    overflow: "hidden",
-                    background: P.surfaceAlt
-                  }}
-                >
-                  {Object.entries(d.diseases || {})
-                    .sort((a, b) => b[1] - a[1]) // optional sorting
-                    .map(([dis, val], idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          height: `${(val / max) * (height - 28)}px`,
-                          background: DC[dis] || P.accent
-                        }}
-                      />
-                    ))}
-                </div>
-
-                {/* label */}
-                <div
-                  style={{
-                    fontSize: 9,
-                    color: P.textDim,
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  {d.label}
-                </div>
+                {Object.entries(d.diseases)
+                  .sort((a, b) => b[1] - a[1]) // optional
+                  .map(([dis, val], idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        height: `${(val / max) * (height - 28)}px`,
+                        background: DC[dis] || P.accent
+                      }}
+                    />
+                  ))}
               </div>
-            );
-          })}
+
+              {/* label */}
+              <div style={{ fontSize: 9, color: P.textDim }}>
+                {d.label}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
