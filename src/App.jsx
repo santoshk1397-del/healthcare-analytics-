@@ -436,7 +436,8 @@ function Donut({ data, size = 160 }) {
 }
 
 function StackedBarChart({ data, height = 200 }) {
-  // ✅ HARD GUARD
+  const [hover, setHover] = React.useState(null);
+
   if (!Array.isArray(data) || data.length === 0) {
     return (
       <div style={{ padding: 20, textAlign: "center", color: "#6B7280" }}>
@@ -445,41 +446,26 @@ function StackedBarChart({ data, height = 200 }) {
     );
   }
 
-  // ✅ GROUP SAFELY
+  // group by month
   const map = {};
-  const [hover, setHover] = useState(null);
+  data.forEach(d => {
+    if (!d || !d.label) return;
 
-  for (let i = 0; i < data.length; i++) {
-    const d = data[i];
-
-    if (!d || !d.label) continue;
-
-    const key = d.label;
-
-    if (!map[key]) {
-      map[key] = { label: key, diseases: {}, total: 0 };
+    if (!map[d.label]) {
+      map[d.label] = { label: d.label, diseases: {}, total: 0 };
     }
 
     const disease = d.disease || "Others";
     const val = Number(d.cases || 0);
 
-    map[key].diseases[disease] =
-      (map[key].diseases[disease] || 0) + val;
+    map[d.label].diseases[disease] =
+      (map[d.label].diseases[disease] || 0) + val;
 
-    map[key].total += val;
-  }
+    map[d.label].total += val;
+  });
 
   const grouped = Object.values(map);
 
-  if (!grouped.length) {
-    return (
-      <div style={{ padding: 20, textAlign: "center", color: "#6B7280" }}>
-        No usable data
-      </div>
-    );
-  }
-
-  // ✅ SCALE
   const max = Math.max(...grouped.map(d => d.total), 1);
 
   return (
@@ -488,8 +474,7 @@ function StackedBarChart({ data, height = 200 }) {
         style={{
           display: "flex",
           alignItems: "flex-end",
-          position: "relative",
-          gap: 6,
+          gap: 8,
           height,
           minWidth: grouped.length * 60
         }}
@@ -501,9 +486,37 @@ function StackedBarChart({ data, height = 200 }) {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              width: 50
+              width: 50,
+              position: "relative"
             }}
           >
+            {/* tooltip */}
+            {hover && hover.month === d.label && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: height - 10,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "#fff",
+                  border: "1px solid #E5E7EB",
+                  borderRadius: 6,
+                  padding: "6px 10px",
+                  fontSize: 11,
+                  color: "#1F2937",
+                  whiteSpace: "nowrap",
+                  zIndex: 100,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  pointerEvents: "none"
+                }}
+              >
+                <div style={{ fontWeight: 600 }}>{hover.month}</div>
+                <div>
+                  {hover.disease}: <b>{hover.value}</b>
+                </div>
+              </div>
+            )}
+
             {/* total */}
             <div style={{ fontSize: 10, color: "#6B7280" }}>
               {d.total}
@@ -521,34 +534,12 @@ function StackedBarChart({ data, height = 200 }) {
                 background: "#E5E7EB"
               }}
             >
-              {hover && hover.month === d.label && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: "100%",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: P.bg,
-                    border: `1px solid ${P.border}`,
-                    borderRadius: 6,
-                    padding: "6px 10px",
-                    fontSize: 11,
-                    color: P.text,
-                    whiteSpace: "nowrap",
-                    zIndex: 20,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-                  }}
-                >
-                  <div style={{ fontWeight: 600 }}>{hover.month}</div>
-                  <div>
-                    {hover.disease}: <b>{hover.value}</b>
-                  </div>
-                </div>
-              )}
               {Object.entries(d.diseases).map(([dis, val], idx) => (
                 <div
                   key={idx}
-                  onMouseEnter={() => setHover({ month: d.label, disease: dis, value: val })}
+                  onMouseEnter={() =>
+                    setHover({ month: d.label, disease: dis, value: val })
+                  }
                   onMouseLeave={() => setHover(null)}
                   style={{
                     height: `${(val / max) * (height - 30)}px`,
