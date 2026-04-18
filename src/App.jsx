@@ -434,6 +434,134 @@ function Donut({ data, size = 160 }) {
   const r = size / 2 - 12, cx = size / 2, cy = size / 2;
   return <div style={{ display: "flex", alignItems: "center", gap: 20 }}><svg width={size} height={size}>{segs.map((seg, i) => { const sa = seg.s * 2 * Math.PI - Math.PI / 2, ea = seg.e * 2 * Math.PI - Math.PI / 2; return <path key={i} d={`M${cx},${cy} L${cx + r * Math.cos(sa)},${cy + r * Math.sin(sa)} A${r},${r} 0 ${ea - sa > Math.PI ? 1 : 0} 1 ${cx + r * Math.cos(ea)},${cy + r * Math.sin(ea)} Z`} fill={DC[seg.disease] || P.accent} opacity="0.85" stroke={P.surface} strokeWidth="2" />; })}<circle cx={cx} cy={cy} r={r * 0.55} fill={P.surface} /><text x={cx} y={cy - 4} textAnchor="middle" fill={P.text} fontSize="18" fontWeight="700">{(total / 1000).toFixed(0)}k</text><text x={cx} y={cy + 12} textAnchor="middle" fill={P.textDim} fontSize="9">TOTAL</text></svg><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{data.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}><div style={{ width: 8, height: 8, borderRadius: 2, background: DC[d.disease] || P.accent }} /><span style={{ color: P.textMuted, minWidth: 90 }}>{d.disease}</span><span style={{ color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div></div>;
 }
+function StackedBarChart({ data, height = 200 }) {
+  const scrollRef = useRef(null);
+  const containerRef = useRef(null);
+  const [barW, setBarW] = useState(40);
+
+  // calculate dynamic width
+  useEffect(() => {
+    if (containerRef.current) {
+      const w = containerRef.current.offsetWidth;
+      setBarW(Math.floor((w - 8) / Math.min(data.length, 12)) - 3);
+    }
+  }, [data]);
+
+  // auto scroll to latest
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+    }
+  }, [data, barW]);
+
+  // max total per month (for scaling)
+  const max = Math.max(
+    ...data.map(d =>
+      Object.values(d.diseases || {}).reduce((a, b) => a + b, 0)
+    ),
+    1
+  );
+
+  const bw = Math.max(barW, 28);
+
+  return (
+    <div ref={containerRef} style={{ width: "100%" }}>
+      <div
+        ref={scrollRef}
+        style={{
+          overflowX: data.length > 12 ? "auto" : "hidden",
+          overflowY: "hidden",
+          width: "100%"
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: 4,
+            height,
+            padding: "0 4px",
+            width:
+              data.length > 12
+                ? data.length * (bw + 4) + 8
+                : "100%"
+          }}
+        >
+          {data.map((d, i) => {
+            const total = Object.values(d.diseases || {}).reduce(
+              (a, b) => a + b,
+              0
+            );
+
+            return (
+              <div
+                key={i}
+                style={{
+                  flex: data.length <= 12 ? 1 : "none",
+                  width: data.length > 12 ? bw : undefined,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4
+                }}
+              >
+                {/* total label */}
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: P.textDim,
+                    fontWeight: 600
+                  }}
+                >
+                  {total >= 1000
+                    ? (total / 1000).toFixed(0) + "k"
+                    : total}
+                </div>
+
+                {/* stacked bar */}
+                <div
+                  style={{
+                    width: "70%",
+                    maxWidth: 32,
+                    height: height - 28,
+                    display: "flex",
+                    flexDirection: "column-reverse",
+                    borderRadius: "4px 4px 2px 2px",
+                    overflow: "hidden",
+                    background: P.surfaceAlt
+                  }}
+                >
+                  {Object.entries(d.diseases || {})
+                    .sort((a, b) => b[1] - a[1]) // optional sorting
+                    .map(([dis, val], idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          height: `${(val / max) * (height - 28)}px`,
+                          background: DC[dis] || P.accent
+                        }}
+                      />
+                    ))}
+                </div>
+
+                {/* label */}
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: P.textDim,
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  {d.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Filter Bar ───
 const selStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", minWidth: 100 };
@@ -1112,7 +1240,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 18 }}><div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>{s.name}</div><div style={{ fontSize: 12, color: P.textDim }}>{s.zone} Zone</div></div><button onClick={() => setSel(null)} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 6, padding: "6px 14px", color: P.textMuted, fontSize: 12, cursor: "pointer" }}>Close</button></div>
           <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>{s.diseaseBreakdown.map(d => <div key={d.disease} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}><div style={{ width: 6, height: 6, borderRadius: 2, background: DC[d.disease] }} /><span style={{ fontSize: 12, color: P.textMuted, flex: 1 }}>{d.disease}</span><span style={{ fontSize: 12, color: P.text, fontWeight: 600 }}>{d.cases.toLocaleString()}</span></div>)}</div>
-            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <BarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} lk="label" vk="cases" </div> </div> {/* Fix here for bar */}
+            <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}> <StackedBarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)}</div> </div> {/* Fix here for bar */}
           </div>
         </div>}
       </div>}
