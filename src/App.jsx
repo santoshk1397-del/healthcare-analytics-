@@ -1725,6 +1725,7 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
   const send = useCallback(async () => {
     if (!inp.trim() || loading) return;
     const msg = inp.trim(); setInp("");
+    if (inpRef.current) inpRef.current.style.height = "auto";
     const next = [...msgs, { role: "user", content: msg }]; setMsgs(next); setLoading(true);
 
     const threadId = await ensureThread(msg);
@@ -1808,9 +1809,9 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
       </div>
       {msgs.length <= 1 && <div className="ncd-chat-sugg" style={{ padding: "0 28px 12px", display: "flex", flexWrap: "wrap", gap: 8 }}>{sugg.map((q, i) => <button key={i} onClick={() => { setInp(q); setTimeout(() => inpRef.current?.focus(), 50); }} style={{ background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 20, padding: "8px 16px", color: P.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans'" }} onMouseEnter={e => { e.target.style.borderColor = P.accent; e.target.style.color = P.accent; }} onMouseLeave={e => { e.target.style.borderColor = P.border; e.target.style.color = P.textMuted; }}>{q}</button>)}</div>}
       <div className="ncd-chat-input" style={{ padding: "16px 28px 24px", borderTop: `1px solid ${P.border}` }}>
-        <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px" }}>
-          <input ref={inpRef} value={inp} onChange={e => setInp(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder="Ask about NCD data, trends, or get recommendations..." style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'" }} />
-          <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center" }}><I.Send /></button>
+        <div style={{ display: "flex", gap: 10, background: P.surface, border: `1px solid ${P.borderLight}`, borderRadius: 14, padding: "6px 8px 6px 18px", alignItems: "flex-end" }}>
+          <textarea ref={inpRef} value={inp} onChange={e => { setInp(e.target.value); const el = e.target; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; }} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Ask about NCD data, trends, or get recommendations..." rows={1} style={{ flex: 1, background: "none", border: "none", outline: "none", color: P.text, fontSize: 14, fontFamily: "'DM Sans'", resize: "none", lineHeight: "1.5", maxHeight: 120, overflowY: "auto", padding: "8px 0" }} />
+          <button onClick={send} disabled={!inp.trim() || loading} style={{ width: 38, height: 38, borderRadius: 10, border: "none", cursor: inp.trim() && !loading ? "pointer" : "default", background: inp.trim() && !loading ? P.accent : P.surfaceAlt, color: inp.trim() && !loading ? "#fff" : P.textDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Send /></button>
         </div>
         {tokenLog.length > 0 && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
           <button onClick={() => setShowTokenLog(!showTokenLog)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: P.textDim, fontFamily: "'DM Sans'", display: "flex", alignItems: "center", gap: 4 }}>
