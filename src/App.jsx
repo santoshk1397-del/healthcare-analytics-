@@ -391,7 +391,129 @@ const I = {
   Eye: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   Back: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
   Alert: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  Map: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>,
+  Sparkle: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>,
 };
+
+// ─── Sparkline ───
+function Sparkline({ data, color = P.accent, w = 60, h = 20 }) {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data, 1), min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`).join(" ");
+  const up = data[data.length - 1] >= data[0];
+  const c = color === "auto" ? (up ? P.green : P.red) : color;
+  return <svg width={w} height={h} style={{ display: "inline-block", verticalAlign: "middle" }}><polyline points={pts} fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+// ─── Ask AI Button ───
+function AskAIBtn({ question, onAsk }) {
+  if (!onAsk) return null;
+  return <button onClick={() => onAsk(question)} title="Ask AI about this" style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: P.textMuted, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }} onMouseEnter={e => { e.currentTarget.style.borderColor = P.accent; e.currentTarget.style.color = P.accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = P.border; e.currentTarget.style.color = P.textMuted; }}><I.Sparkle /> Ask AI</button>;
+}
+
+// ─── Chhattisgarh District Map (improved geography) ───
+const CG_PATHS = {
+  "Surguja":        "M155,10 L185,8 L210,15 L230,30 L235,55 L225,80 L210,90 L185,95 L165,100 L145,90 L130,70 L125,45 L135,25 Z",
+  "Korba":          "M130,70 L145,90 L165,100 L185,95 L195,115 L185,135 L165,145 L140,140 L120,125 L115,100 Z",
+  "Bilaspur":       "M185,95 L210,90 L235,95 L245,115 L240,140 L220,150 L195,140 L185,135 L195,115 Z",
+  "Janjgir-Champa": "M220,150 L240,140 L265,135 L280,145 L285,170 L270,185 L245,185 L230,175 Z",
+  "Raipur":         "M165,145 L185,135 L195,140 L220,150 L230,175 L225,200 L210,215 L185,220 L165,210 L150,195 L155,165 Z",
+  "Mahasamund":     "M230,175 L245,185 L270,185 L280,200 L275,220 L255,230 L235,225 L225,200 L210,215 Z",
+  "Durg":           "M95,150 L120,140 L140,140 L165,145 L155,165 L150,195 L130,200 L105,190 L90,175 Z",
+  "Rajnandgaon":    "M55,145 L75,130 L95,135 L95,150 L90,175 L105,190 L100,215 L80,230 L55,220 L45,195 L50,165 Z",
+  "Kawardha":       "M60,100 L85,90 L115,100 L120,125 L95,135 L75,130 L55,145 L50,120 Z",
+  "Dhamtari":       "M150,195 L165,210 L185,220 L180,245 L165,260 L140,265 L125,245 L130,220 L130,200 Z",
+  "Kanker":         "M80,230 L100,215 L130,200 L130,220 L125,245 L140,265 L130,290 L110,300 L85,290 L70,265 Z",
+  "Bastar":         "M110,300 L130,290 L140,265 L165,260 L180,245 L200,255 L215,280 L220,310 L210,340 L190,365 L165,370 L140,360 L120,340 L105,320 Z",
+};
+const CG_CENTERS = {
+  "Surguja": [175, 52], "Korba": [155, 112], "Bilaspur": [215, 117], "Janjgir-Champa": [253, 163],
+  "Raipur": [192, 180], "Mahasamund": [250, 205], "Durg": [130, 170], "Rajnandgaon": [72, 180],
+  "Kawardha": [85, 112], "Dhamtari": [155, 232], "Kanker": [105, 262], "Bastar": [165, 315],
+};
+
+function GeoMap({ dd, metric = "screeningRate", onAsk }) {
+  const [selected, setSelected] = useState(null);
+  const [mapMetric, setMapMetric] = useState(metric);
+  const getVal = (d) => {
+    if (mapMetric === "screeningRate") return parseFloat(d.screeningRate);
+    if (mapMetric === "drugAvailability") return parseFloat(d.drugAvailability);
+    if (mapMetric === "budgetUtilized") return d.budgetUtilized * 100;
+    if (mapMetric === "hrFilled") return d.hrFilled * 100;
+    if (mapMetric === "totalCases") return d.totalCases;
+    return 0;
+  };
+  const metricLabel = { screeningRate: "Screening %", drugAvailability: "Drug Avail %", budgetUtilized: "Budget Util %", hrFilled: "HR Fill %", totalCases: "Total Cases" };
+  const vals = dd.map(d => getVal(d));
+  const maxV = Math.max(...vals, 1), minV = Math.min(...vals, 0);
+  const getColor = (val) => {
+    if (mapMetric === "totalCases") {
+      const t = maxV > minV ? (val - minV) / (maxV - minV) : 0;
+      return t > 0.7 ? "#991B1B" : t > 0.4 ? "#D97706" : "#059669";
+    }
+    return val > 65 ? "#059669" : val > 45 ? "#D97706" : "#991B1B";
+  };
+  const getBg = (val) => {
+    if (mapMetric === "totalCases") {
+      const t = maxV > minV ? (val - minV) / (maxV - minV) : 0;
+      return t > 0.7 ? "#fee2e2" : t > 0.4 ? "#fef3c7" : "#f0fdf4";
+    }
+    return val > 65 ? "#f0fdf4" : val > 45 ? "#fef3c7" : "#fee2e2";
+  };
+  const sData = selected ? dd.find(d => d.name === selected) : null;
+  return <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <I.Map />
+        <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Chhattisgarh — district map</span>
+      </div>
+      <div className="ncd-filter-pills" style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+        {Object.keys(metricLabel).map(k => <button key={k} onClick={() => setMapMetric(k)} style={{ padding: "4px 10px", borderRadius: 6, border: mapMetric === k ? `1px solid ${P.accent}` : `1px solid ${P.border}`, background: mapMetric === k ? P.accentGlow : "none", color: mapMetric === k ? P.accent : P.textDim, fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{metricLabel[k]}</button>)}
+      </div>
+    </div>
+    <div style={{ position: "relative" }}>
+      <svg viewBox="30 0 280 380" style={{ width: "100%", maxWidth: 420, display: "block", margin: "0 auto" }}>
+        {dd.map(d => {
+          const path = CG_PATHS[d.name];
+          if (!path) return null;
+          const val = getVal(d);
+          const center = CG_CENTERS[d.name];
+          const isSel = selected === d.name;
+          return <g key={d.name} onClick={() => setSelected(isSel ? null : d.name)} style={{ cursor: "pointer" }}>
+            <path d={path} fill={getBg(val)} stroke={isSel ? P.accent : getColor(val)} strokeWidth={isSel ? 2.5 : 1} />
+            {center && <>
+              <text x={center[0]} y={center[1] - 6} textAnchor="middle" fontSize="7.5" fill={P.text} fontWeight="600" style={{ pointerEvents: "none" }}>{d.name}</text>
+              <text x={center[0]} y={center[1] + 5} textAnchor="middle" fontSize="8.5" fill={getColor(val)} fontWeight="700" style={{ pointerEvents: "none" }}>{mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%"}</text>
+            </>}
+          </g>;
+        })}
+      </svg>
+      {/* Detail card — bottom right overlay */}
+      {sData && <div className="ncd-map-detail" style={{ position: "absolute", bottom: 0, right: 0, width: 240, background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 10, padding: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{sData.name}</div>
+          <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: P.textDim, fontSize: 14 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 10, color: P.textDim, marginBottom: 10 }}>{sData.zone} zone · Pop {(sData.population / 1e5).toFixed(1)}L</div>
+        {[["Screening", sData.screeningRate + "%", parseFloat(sData.screeningRate) > 65 ? P.green : parseFloat(sData.screeningRate) > 45 ? P.amber : P.red],
+          ["Drugs", sData.drugAvailability + "%", parseFloat(sData.drugAvailability) > 60 ? P.green : parseFloat(sData.drugAvailability) > 40 ? P.amber : P.red],
+          ["Budget", (sData.budgetUtilized * 100).toFixed(1) + "%", sData.budgetUtilized > 0.65 ? P.green : sData.budgetUtilized > 0.45 ? P.amber : P.red],
+          ["HR", (sData.hrFilled * 100).toFixed(0) + "%", sData.hrFilled > 0.65 ? P.green : sData.hrFilled > 0.5 ? P.amber : P.red],
+          ["Cases", sData.totalCases.toLocaleString(), P.text]
+        ].map(([l, v, c]) => <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 11 }}><span style={{ color: P.textDim }}>{l}</span><span style={{ fontWeight: 600, color: c }}>{v}</span></div>)}
+        {onAsk && <div style={{ marginTop: 10 }}><AskAIBtn question={`Analyze ${sData.name} district — screening ${sData.screeningRate}%, drugs ${sData.drugAvailability}%, budget ${(sData.budgetUtilized*100).toFixed(0)}%, HR ${(sData.hrFilled*100).toFixed(0)}%. What are the key issues and recommended interventions?`} onAsk={onAsk} /></div>}
+      </div>}
+    </div>
+    {/* Legend */}
+    <div style={{ display: "flex", gap: 16, fontSize: 10, color: P.textDim, marginTop: 12, justifyContent: "center" }}>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#f0fdf4", border: "1px solid #059669", marginRight: 4, verticalAlign: "middle" }} />Good (&gt;65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fef3c7", border: "1px solid #D97706", marginRight: 4, verticalAlign: "middle" }} />Warning (45-65%)</span>
+      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 2, background: "#fee2e2", border: "1px solid #991B1B", marginRight: 4, verticalAlign: "middle" }} />Critical (&lt;45%)</span>
+    </div>
+    <div style={{ fontSize: 9, color: P.textDim, textAlign: "center", marginTop: 6 }}>Click a district to view details · Tap again to close</div>
+  </div>;
+}
 
 // ─── Shared UI ───
 function Bar({ value, max = 100, color = P.accent, h = 6 }) {
@@ -598,7 +720,7 @@ function StackedBarChart({ data, height = 200 }) {
 // ─── Filter Bar ───
 const selStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", minWidth: 100 };
 
-function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, customFrom, setCustomFrom, customTo, setCustomTo }) {
+function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, customFrom, setCustomFrom, customTo, setCustomTo, disease, setDisease }) {
   const dateInp = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", minWidth: 130 };
   return <div className="ncd-filter-bar" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -608,6 +730,13 @@ function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, 
         {districts.map(d => <option key={d} value={d}>{d}</option>)}
       </select>
     </div>
+    {disease !== undefined && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>NCD Filter</span>
+      <select value={disease || "all"} onChange={e => setDisease(e.target.value)} style={{ ...selStyle, borderColor: disease && disease !== "all" ? P.accent : P.border, color: disease && disease !== "all" ? P.accent : P.text }}>
+        <option value="all">All Diseases</option>
+        {DISEASES.map(d => <option key={d} value={d}>{d}</option>)}
+      </select>
+    </div>}
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase", marginRight: 2 }}>Period</span>
       <div className="ncd-filter-pills" style={{ display: "flex", gap: 2, background: P.surfaceAlt, borderRadius: 8, padding: 2, border: `1px solid ${P.border}` }}>
@@ -627,7 +756,7 @@ function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, 
       <span style={{ fontSize: 11, color: P.textDim }}>to</span>
       <input type="date" value={customTo || ""} onChange={e => setCustomTo(e.target.value)} style={dateInp} />
     </div>}
-    {(district !== "all" || timeRange !== "12m") && <button onClick={() => { setDistrict("all"); setTimeRange("12m"); setCustomFrom(""); setCustomTo(""); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Reset</button>}
+    {(district !== "all" || timeRange !== "12m" || (disease && disease !== "all")) && <button onClick={() => { setDistrict("all"); setTimeRange("12m"); setCustomFrom(""); setCustomTo(""); if (setDisease) setDisease("all"); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Reset</button>}
   </div>;
 }
 
@@ -715,27 +844,29 @@ function Alerts({ dd, role }) {
 }
 
 // ─── Reports ───
-function Reports({ rawRows, role }) {
+function Reports({ rawRows, role, onAskAI }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
+  const [fDisease, setFDisease] = useState("all");
   const [timeRange, setTimeRange] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
+  const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
   const { from: dateFrom, to: dateTo } = getDateRange(timeRange, customFrom, customTo);
-  const fdd = aggregateRows(rawRows, { district: fDistrict, dateFrom, dateTo }, rawRows);
+  const fdd = aggregateRows(filteredRows, { district: fDistrict, dateFrom, dateTo }, filteredRows);
   const fst = computeTotals(fdd);
   const s = fdd.find(d => d.id === sel);
 
-  const fb = <FilterBar district={fDistrict} setDistrict={setFDistrict} districts={districtNames} timeRange={timeRange} setTimeRange={setTimeRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />;
+  const fb = <FilterBar district={fDistrict} setDistrict={setFDistrict} districts={districtNames} timeRange={timeRange} setTimeRange={setTimeRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} disease={fDisease} setDisease={setFDisease} />;
 
   // Time-series data respecting filters
-  const ts = buildTimeSeries(rawRows, { district: fDistrict, dateFrom, dateTo });
+  const ts = buildTimeSeries(filteredRows, { district: fDistrict, dateFrom, dateTo });
 
   const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
-  const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }, { id: "benchmarks", l: "Benchmarks" }];
+  const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
 
   // ── Shared export helpers ──
@@ -1252,20 +1383,24 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
           <KPI icon={I.Users} label="HR Filled" value={`${fst.avgHrFill}%`} sub={`Target: ${BENCHMARKS.hr_fill.target}% · Nat: ${BENCHMARKS.hr_fill.national_avg}%`} color={parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.target ? P.green : parseFloat(fst.avgHrFill) >= BENCHMARKS.hr_fill.national_avg ? P.amber : P.red} />
         </div>
         <div className="ncd-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Disease Distribution</div><Donut data={totDis} /></div>
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22, overflow: "hidden" }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Monthly Registrations</div><BarChart data={ts.map(t => ({ m: t.label, c: t.cases }))} lk="m" vk="c" h={180} /></div>
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Disease Distribution</span><AskAIBtn question="Break down the disease distribution across all districts. Which diseases have the highest burden and why?" onAsk={onAskAI} /></div><Donut data={totDis} /></div>
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22, overflow: "hidden" }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Monthly Registrations</span><AskAIBtn question="Analyze the monthly registration trend. Are cases increasing or decreasing? What's driving the pattern?" onAsk={onAskAI} /></div><BarChart data={ts.map(t => ({ m: t.label, c: t.cases }))} lk="m" vk="c" h={180} /></div>
         </div>
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>District Performance</div>
-          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}><table style={{ width: "100%", minWidth: 600, borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr>{["District","Cases","Screening","Drugs","Budget"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: h === "District" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
-            <tbody>{fdd.map(d => <tr key={d.id} onClick={() => setSel(d.id)} style={{ cursor: "pointer", background: sel === d.id ? P.accentGlow : "transparent" }} onMouseEnter={e => { if (sel !== d.id) e.currentTarget.style.background = P.surfaceAlt; }} onMouseLeave={e => { if (sel !== d.id) e.currentTarget.style.background = "transparent"; }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>District Performance</span><AskAIBtn question="Which districts are performing worst across all metrics? What interventions would you recommend?" onAsk={onAskAI} /></div>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}><table style={{ width: "100%", minWidth: 700, borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr>{["District","Cases","Trend","Screening","Drugs","Budget"].map(h => <th key={h} style={{ padding: "10px 14px", textAlign: h === "District" ? "left" : "right", color: P.textDim, fontWeight: 600, fontSize: 11, textTransform: "uppercase", borderBottom: `1px solid ${P.border}` }}>{h}</th>)}</tr></thead>
+            <tbody>{fdd.map(d => {
+              const dts = buildTimeSeries(rawRows, { district: d.name }).slice(-6);
+              const sparkData = dts.map(t => t.cases);
+              return <tr key={d.id} onClick={() => setSel(d.id)} style={{ cursor: "pointer", background: sel === d.id ? P.accentGlow : "transparent" }} onMouseEnter={e => { if (sel !== d.id) e.currentTarget.style.background = P.surfaceAlt; }} onMouseLeave={e => { if (sel !== d.id) e.currentTarget.style.background = "transparent"; }}>
               <td style={{ padding: "11px 14px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
               <td style={{ padding: "11px 14px", textAlign: "right", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.totalCases.toLocaleString()}</td>
+              <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}` }}><Sparkline data={sparkData} color="auto" /></td>
               <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}><Bar value={parseFloat(d.screeningRate)} color={parseFloat(d.screeningRate) > 65 ? P.green : parseFloat(d.screeningRate) > 45 ? P.amber : P.red} /><span style={{ color: P.text, minWidth: 36 }}>{d.screeningRate}%</span></div></td>
               <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}`, color: parseFloat(d.drugAvailability) > 75 ? P.green : parseFloat(d.drugAvailability) > 55 ? P.amber : P.red, fontWeight: 600 }}>{d.drugAvailability}%</td>
               <td style={{ padding: "11px 14px", textAlign: "right", borderBottom: `1px solid ${P.border}`, color: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red, fontWeight: 600 }}>{(d.budgetUtilized * 100).toFixed(1)}%</td>
-            </tr>)}</tbody>
+            </tr>; })}</tbody>
           </table></div>
         </div>
         {s && <div style={{ background: P.surface, border: `1px solid ${P.accent}40`, borderRadius: 12, padding: 22 }}>
@@ -1275,6 +1410,14 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
             <div style={{ overflowX: "auto" }}> <div style={{ minWidth: 600 }}>Disease Split<StackedBarChart data={getDiseaseMonthlyData(rawRows, s.name, dateFrom, dateTo)} /> </div> </div> {/* Fix here for bar */}
           </div>
         </div>}
+      </div>}
+
+      {/* Heatmap */}
+      {/* Map */}
+      {tab === "map" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Geographic view</div>
+        {fb}
+        <GeoMap dd={fdd} onAsk={onAskAI} />
       </div>}
 
       {/* Heatmap */}
@@ -1387,7 +1530,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
 
       {/* Screening */}
       {tab === "screening" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Screening Coverage</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Screening Coverage</span><AskAIBtn question="Analyze screening coverage across all districts. Which districts are critically below the NPCDCS target of 65%? What interventions would improve coverage?" onAsk={onAskAI} /></div>
         {fb}
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Screening Rate Trend</div>
@@ -1399,14 +1542,14 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
 
       {/* Disease Trends — with district filter */}
       {tab === "disease" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Disease Trends</span><AskAIBtn question="Which diseases are growing fastest? Are any diseases showing concerning spikes in specific districts?" onAsk={onAskAI} /></div>
         {fb}
         <div className="ncd-disease-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{DISEASES.map(dis => { const disTs = ts.map(t => ({ m: t.label, c: t.diseases[dis] || 0 })); const t = fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0); return <div key={dis} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 20, overflow: "hidden" }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div style={{ width: 10, height: 10, borderRadius: 3, background: DC[dis] }} /><span style={{ fontSize: 15, fontWeight: 700, color: P.text }}>{dis}</span></div><span style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{t.toLocaleString()}</span></div><BarChart data={disTs} lk="m" vk="c" color={DC[dis]} h={120} /></div>; })}</div>
       </div>}
 
       {/* Budget */}
       {tab === "budget" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Budget & Resources</span><AskAIBtn question="Analyze budget utilization and HR fill rates across districts. Which districts have the worst resource gaps and what should be prioritized?" onAsk={onAskAI} /></div>
         {fb}
         <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 16 }}>Budget Utilization Trend</div>
@@ -1423,7 +1566,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
 }
 
 // ─── AI Chat ───
-function Chat({ dd, st, rawRows }) {
+function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
   const WELCOME = "Welcome to the NCD Analytics AI Assistant. I have access to the complete NCD surveillance dataset for your state, including month-by-month breakdowns and year-over-year trends.\n\nHow may I help you today?";
   const [msgs, setMsgs] = useState([{ role: "assistant", content: WELCOME }]);
   const [inp, setInp] = useState(""); const [loading, setLoading] = useState(false);
@@ -1435,6 +1578,15 @@ function Chat({ dd, st, rawRows }) {
   const [showTokenLog, setShowTokenLog] = useState(false);
   const endRef = useRef(null); const inpRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
+  // Handle Ask AI from Reports
+  useEffect(() => {
+    if (pendingQuestion) {
+      setInp(pendingQuestion);
+      if (onClearPending) onClearPending();
+      setTimeout(() => inpRef.current?.focus(), 100);
+    }
+  }, [pendingQuestion]);
 
   useEffect(() => {
     (async () => {
@@ -2136,6 +2288,7 @@ export default function App() {
   const [rawRows, setRawRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hist, setHist] = useState([]);
+  const [pendingAskAI, setPendingAskAI] = useState("");
 
   // When role changes, reset to first allowed section
   useEffect(() => {
@@ -2208,6 +2361,7 @@ export default function App() {
   .ncd-bm-val{font-size:22px!important}
   .ncd-bm-card{padding:14px!important}
   .ncd-bm-disease{grid-template-columns:1fr!important}
+  .ncd-map-detail{position:static!important;width:100%!important;margin-top:12px!important}
   .ncd-filter-bar{flex-direction:column!important;align-items:stretch!important;gap:8px!important}
   .ncd-filter-pills{flex-wrap:wrap!important}
   .ncd-filter-pill{padding:4px 8px!important;font-size:10px!important}
@@ -2265,8 +2419,8 @@ export default function App() {
 
     <div className="ncd-main-content" style={{ flex: 1, overflow: "hidden" }}>
       {loading && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: P.textDim, fontSize: 14 }}>Loading data from server...</div>}
-      {!loading && section === "reports" && <Reports rawRows={visibleRows} role={role} />}
-      {!loading && section === "chat" && <Chat dd={dd} st={st} rawRows={visibleRows} />}
+      {!loading && section === "reports" && <Reports rawRows={visibleRows} role={role} onAskAI={(q) => { setPendingAskAI(q); setSection("chat"); }} />}
+      {!loading && section === "chat" && <Chat dd={dd} st={st} rawRows={visibleRows} pendingQuestion={pendingAskAI} onClearPending={() => setPendingAskAI("")} />}
       {!loading && section === "ingest" && <Ingest dd={dd} rawRows={visibleRows} onUpdate={() => refreshData()} history={hist} onHistory={addHist} role={role} />}
       {!loading && section === "fieldwork" && <HealthWorker />}
     </div>
