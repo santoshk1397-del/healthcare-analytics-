@@ -358,6 +358,64 @@ function aggregateRows(rows, { district = "all", month = "all", year = "all", da
   }));
 }
 
+function detectDataIssues(rows) {
+  if (!rows || rows.length === 0) return { issues: [], score: 0 };
+
+  const issues = [];
+  let total = 0;
+  let pass = 0;
+
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const districts = [...new Set(rows.map(r => r.district_name))];
+  const diseases = [...new Set(rows.map(r => r.disease_type))];
+
+  // Missing month
+  districts.forEach(d => {
+    months.forEach(m => {
+      total++;
+      const exists = rows.some(r => r.district_name === d && r.month === m);
+      if (!exists) {
+        issues.push(`${d} has no data for ${m}`);
+      } else {
+        pass++;
+      }
+    });
+  });
+
+  // Zero disease quarter
+  const quarters = {
+    Q1: ["Apr","May","Jun"],
+    Q2: ["Jul","Aug","Sep"],
+    Q3: ["Oct","Nov","Dec"],
+    Q4: ["Jan","Feb","Mar"]
+  };
+
+  districts.forEach(d => {
+    diseases.forEach(dis => {
+      const subset = rows.filter(r => r.district_name === d && r.disease_type === dis);
+      if (!subset.length) return;
+
+      Object.entries(quarters).forEach(([q, ms]) => {
+        const qRows = subset.filter(r => ms.includes(r.month));
+        if (!qRows.length) return;
+
+        total++;
+        const allZero = qRows.every(r => Number(r.cases || 0) === 0);
+
+        if (allZero) {
+          issues.push(`${d} ${dis} all zero for ${q}`);
+        } else {
+          pass++;
+        }
+      });
+    });
+  });
+
+  const score = total ? Math.round((pass / total) * 100) : 100;
+
+  return { issues, score };
+}
+
 // ─── Palette ───
 const P = {
   // 🧱 BACKGROUNDS
@@ -1456,6 +1514,75 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
       {tab === "dashboard" && <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>State Dashboard</div>
         {fb}
+        <div
+  style={{
+    background: P.surface,
+    border: `1px solid ${P.border}`,
+    borderRadius: 10,
+    padding: "12px 14px",
+    marginBottom: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap"
+  }}
+>
+  {/* Score */}
+  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: "50%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        fontSize: 13,
+        background:
+          score > 80 ? "#DCFCE7" :
+          score > 60 ? "#FEF9C3" :
+          "#FEE2E2",
+        color:
+          score > 80 ? P.green :
+          score > 60 ? P.amber :
+          P.red
+      }}
+    >
+      {score}
+    </div>
+
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: P.text }}>
+        Data Quality Score
+      </div>
+      <div style={{ fontSize: 10, color: P.textDim }}>
+        Missing / zero-value detection
+      </div>
+    </div>
+  </div>
+
+  {/* Issues */}
+  <div style={{ flex: 1, minWidth: 200 }}>
+    {issues.length === 0 ? (
+      <div style={{ fontSize: 11, color: P.green }}>
+        ✅ No major issues
+      </div>
+    ) : (
+      <div style={{ fontSize: 10, color: P.red, maxHeight: 50, overflow: "auto" }}>
+        {issues.slice(0, 3).map((i, idx) => (
+          <div key={idx}>⚠ {i}</div>
+        ))}
+        {issues.length > 3 && (
+          <div style={{ color: P.textDim }}>
+            +{issues.length - 3} more
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</div>
         <div className="ncd-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16 }}>
           <KPI icon={I.Activity} label="Total Cases" value={fst.totalCases.toLocaleString()} sub={`Pop: ${(fst.totalPopulation / 1e6).toFixed(1)}M`} color={P.accent} />
           <KPI icon={I.Target} label="Screening" value={`${fst.avgScreening}%`} sub={`Target: ${BENCHMARKS.screening.target}% · Nat: ${BENCHMARKS.screening.national_avg}%`} color={parseFloat(fst.avgScreening) >= BENCHMARKS.screening.target ? P.green : parseFloat(fst.avgScreening) >= BENCHMARKS.screening.national_avg ? P.amber : P.red} />
@@ -1498,6 +1625,75 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
       {tab === "map" && <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Geographic view</div>
         {fb}
+        <div
+  style={{
+    background: P.surface,
+    border: `1px solid ${P.border}`,
+    borderRadius: 10,
+    padding: "12px 14px",
+    marginBottom: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap"
+  }}
+>
+  {/* Score */}
+  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: "50%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        fontSize: 13,
+        background:
+          score > 80 ? "#DCFCE7" :
+          score > 60 ? "#FEF9C3" :
+          "#FEE2E2",
+        color:
+          score > 80 ? P.green :
+          score > 60 ? P.amber :
+          P.red
+      }}
+    >
+      {score}
+    </div>
+
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: P.text }}>
+        Data Quality Score
+      </div>
+      <div style={{ fontSize: 10, color: P.textDim }}>
+        Missing / zero-value detection
+      </div>
+    </div>
+  </div>
+
+  {/* Issues */}
+  <div style={{ flex: 1, minWidth: 200 }}>
+    {issues.length === 0 ? (
+      <div style={{ fontSize: 11, color: P.green }}>
+        ✅ No major issues
+      </div>
+    ) : (
+      <div style={{ fontSize: 10, color: P.red, maxHeight: 50, overflow: "auto" }}>
+        {issues.slice(0, 3).map((i, idx) => (
+          <div key={idx}>⚠ {i}</div>
+        ))}
+        {issues.length > 3 && (
+          <div style={{ color: P.textDim }}>
+            +{issues.length - 3} more
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</div>
         <GeoMap dd={fdd} onAsk={onAskAI} />
       </div>}
 
