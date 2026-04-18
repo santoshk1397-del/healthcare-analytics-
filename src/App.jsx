@@ -720,7 +720,7 @@ function StackedBarChart({ data, height = 200 }) {
 // ─── Filter Bar ───
 const selStyle = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", cursor: "pointer", minWidth: 100 };
 
-function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, customFrom, setCustomFrom, customTo, setCustomTo }) {
+function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, customFrom, setCustomFrom, customTo, setCustomTo, disease, setDisease }) {
   const dateInp = { background: P.surfaceAlt, border: `1px solid ${P.border}`, borderRadius: 8, padding: "6px 12px", color: P.text, fontSize: 12, fontFamily: "'DM Sans'", outline: "none", minWidth: 130 };
   return <div className="ncd-filter-bar" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", padding: "12px 0" }}>
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -730,6 +730,13 @@ function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, 
         {districts.map(d => <option key={d} value={d}>{d}</option>)}
       </select>
     </div>
+    {disease !== undefined && <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase" }}>NCD Filter</span>
+      <select value={disease || "all"} onChange={e => setDisease(e.target.value)} style={{ ...selStyle, borderColor: disease && disease !== "all" ? P.accent : P.border, color: disease && disease !== "all" ? P.accent : P.text }}>
+        <option value="all">All Diseases</option>
+        {DISEASES.map(d => <option key={d} value={d}>{d}</option>)}
+      </select>
+    </div>}
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <span style={{ fontSize: 11, color: P.textDim, fontWeight: 600, textTransform: "uppercase", marginRight: 2 }}>Period</span>
       <div className="ncd-filter-pills" style={{ display: "flex", gap: 2, background: P.surfaceAlt, borderRadius: 8, padding: 2, border: `1px solid ${P.border}` }}>
@@ -749,7 +756,7 @@ function FilterBar({ district, setDistrict, districts, timeRange, setTimeRange, 
       <span style={{ fontSize: 11, color: P.textDim }}>to</span>
       <input type="date" value={customTo || ""} onChange={e => setCustomTo(e.target.value)} style={dateInp} />
     </div>}
-    {(district !== "all" || timeRange !== "12m") && <button onClick={() => { setDistrict("all"); setTimeRange("12m"); setCustomFrom(""); setCustomTo(""); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Reset</button>}
+    {(district !== "all" || timeRange !== "12m" || (disease && disease !== "all")) && <button onClick={() => { setDistrict("all"); setTimeRange("12m"); setCustomFrom(""); setCustomTo(""); if (setDisease) setDisease("all"); }} style={{ background: "none", border: `1px solid ${P.border}`, borderRadius: 6, padding: "5px 12px", color: P.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans'" }}>Reset</button>}
   </div>;
 }
 
@@ -841,20 +848,22 @@ function Reports({ rawRows, role, onAskAI }) {
   const [sel, setSel] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [fDistrict, setFDistrict] = useState("all");
+  const [fDisease, setFDisease] = useState("all");
   const [timeRange, setTimeRange] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
+  const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
   const { from: dateFrom, to: dateTo } = getDateRange(timeRange, customFrom, customTo);
-  const fdd = aggregateRows(rawRows, { district: fDistrict, dateFrom, dateTo }, rawRows);
+  const fdd = aggregateRows(filteredRows, { district: fDistrict, dateFrom, dateTo }, filteredRows);
   const fst = computeTotals(fdd);
   const s = fdd.find(d => d.id === sel);
 
-  const fb = <FilterBar district={fDistrict} setDistrict={setFDistrict} districts={districtNames} timeRange={timeRange} setTimeRange={setTimeRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} />;
+  const fb = <FilterBar district={fDistrict} setDistrict={setFDistrict} districts={districtNames} timeRange={timeRange} setTimeRange={setTimeRange} customFrom={customFrom} setCustomFrom={setCustomFrom} customTo={customTo} setCustomTo={setCustomTo} disease={fDisease} setDisease={setFDisease} />;
 
   // Time-series data respecting filters
-  const ts = buildTimeSeries(rawRows, { district: fDistrict, dateFrom, dateTo });
+  const ts = buildTimeSeries(filteredRows, { district: fDistrict, dateFrom, dateTo });
 
   const showAlerts = role && (role.label.includes("Admin") || role.label.includes("District"));
   const tabs = [{ id: "dashboard", l: "Dashboard" }, ...(showAlerts ? [{ id: "alerts", l: "⚠ Alerts" }] : []), { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
