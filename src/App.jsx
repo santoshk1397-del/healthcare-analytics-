@@ -240,11 +240,11 @@ function getDiseaseMonthlyData(rows, district, dateFrom, dateTo) {
       (!dateTo || r.month_date <= dateTo)
     )
     .map(r => ({
-      label: r.month_date,
+      label: formatMonth(r.month_date),
       disease: r.disease_type,
       cases: Number(r.cases || 0)
     }))
-    .sort((a, b) => new Date(a.label) - new Date(b.label));
+    .sort((a, b) => new Date(a.rawDate) - new Date(b.rawDate));
 }
 
 // ─── Aggregate raw rows with filters ───
