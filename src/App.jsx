@@ -413,19 +413,20 @@ function AskAIBtn({ question, onAsk }) {
 }
 
 // ─── Chhattisgarh Leaflet Map ───
-const CG_GEO = {
-  "Surguja":        [[23.65,82.65],[23.55,82.85],[23.50,83.10],[23.50,83.40],[23.45,83.60],[23.25,83.70],[23.00,83.65],[22.80,83.50],[22.70,83.30],[22.70,83.05],[22.80,82.85],[22.95,82.70],[23.15,82.60],[23.40,82.58]],
-  "Korba":          [[22.80,82.30],[22.75,82.50],[22.70,82.70],[22.65,82.90],[22.50,83.00],[22.30,82.95],[22.10,82.85],[22.05,82.65],[22.10,82.45],[22.25,82.30],[22.45,82.25],[22.60,82.25]],
-  "Bilaspur":       [[22.55,81.80],[22.50,82.00],[22.45,82.20],[22.35,82.40],[22.15,82.45],[21.90,82.35],[21.75,82.15],[21.75,81.95],[21.85,81.80],[22.00,81.72],[22.20,81.68],[22.40,81.72]],
-  "Janjgir-Champa": [[22.15,82.20],[22.10,82.45],[22.05,82.70],[21.95,82.90],[21.75,82.95],[21.55,82.85],[21.45,82.65],[21.45,82.40],[21.55,82.20],[21.75,82.10],[21.95,82.12]],
-  "Raipur":         [[21.55,81.35],[21.50,81.55],[21.45,81.75],[21.35,81.90],[21.15,81.95],[20.95,81.85],[20.90,81.65],[20.95,81.45],[21.05,81.30],[21.20,81.22],[21.38,81.22]],
-  "Mahasamund":     [[21.35,81.90],[21.30,82.15],[21.20,82.40],[21.05,82.55],[20.85,82.50],[20.70,82.30],[20.70,82.05],[20.80,81.85],[20.95,81.78],[21.15,81.80]],
-  "Durg":           [[21.55,81.00],[21.50,81.20],[21.50,81.38],[21.38,81.38],[21.20,81.32],[21.05,81.20],[21.00,81.00],[21.05,80.85],[21.20,80.78],[21.38,80.80]],
-  "Rajnandgaon":    [[21.45,80.55],[21.40,80.75],[21.38,80.95],[21.25,81.05],[21.05,81.08],[20.85,80.98],[20.70,80.80],[20.70,80.60],[20.80,80.45],[20.98,80.38],[21.18,80.38],[21.35,80.45]],
-  "Kawardha":       [[22.50,80.85],[22.45,81.05],[22.40,81.25],[22.30,81.45],[22.15,81.55],[21.95,81.50],[21.75,81.35],[21.65,81.15],[21.68,80.95],[21.80,80.80],[22.00,80.72],[22.25,80.72]],
-  "Dhamtari":       [[21.05,81.25],[20.98,81.45],[20.90,81.65],[20.78,81.78],[20.58,81.78],[20.42,81.65],[20.38,81.45],[20.42,81.28],[20.55,81.15],[20.72,81.10],[20.90,81.15]],
-  "Kanker":         [[20.65,81.10],[20.58,81.30],[20.50,81.50],[20.38,81.65],[20.18,81.72],[19.98,81.65],[19.85,81.48],[19.82,81.28],[19.90,81.10],[20.05,80.98],[20.22,80.92],[20.42,80.95],[20.55,81.02]],
-  "Bastar":         [[19.90,81.30],[19.95,81.55],[19.95,81.80],[19.85,82.05],[19.65,82.25],[19.40,82.35],[19.15,82.30],[18.90,82.15],[18.75,81.90],[18.72,81.65],[18.80,81.40],[18.95,81.20],[19.15,81.05],[19.40,80.98],[19.60,81.00],[19.78,81.10]],
+// District HQ coordinates (actual lat/lng)
+const CG_DISTRICTS = {
+  "Surguja":        { lat: 23.12, lng: 83.20, radius: 28 },
+  "Korba":          { lat: 22.35, lng: 82.68, radius: 22 },
+  "Bilaspur":       { lat: 22.08, lng: 82.15, radius: 24 },
+  "Janjgir-Champa": { lat: 21.82, lng: 82.57, radius: 20 },
+  "Raipur":         { lat: 21.25, lng: 81.63, radius: 26 },
+  "Mahasamund":     { lat: 21.10, lng: 82.10, radius: 20 },
+  "Durg":           { lat: 21.19, lng: 81.28, radius: 20 },
+  "Rajnandgaon":    { lat: 21.10, lng: 81.03, radius: 22 },
+  "Kawardha":       { lat: 22.02, lng: 81.23, radius: 20 },
+  "Dhamtari":       { lat: 20.71, lng: 81.55, radius: 18 },
+  "Kanker":         { lat: 20.27, lng: 81.49, radius: 20 },
+  "Bastar":         { lat: 19.08, lng: 82.02, radius: 32 },
 };
 const CG_CENTER = [21.1, 81.85];
 
@@ -475,7 +476,7 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
         { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", sub: "abc" },
       ];
       const t = tileOptions[1];
-      window.L.tileLayer(t.url, { maxZoom: 12, minZoom: 5, opacity: 0.6, subdomains: t.sub || "abc" }).addTo(m);
+      window.L.tileLayer(t.url, { maxZoom: 12, minZoom: 5, opacity: 0.85, subdomains: t.sub || "abc" }).addTo(m);
       window.L.control.attribution({ prefix: false }).addAttribution('© <a href="https://openstreetmap.org">OSM</a>').addTo(m);
       mapInst.current = m;
       layerRef.current = window.L.layerGroup().addTo(m);
@@ -498,21 +499,21 @@ function GeoMap({ dd, metric = "screeningRate", onAsk }) {
     if (!mapReady || !layerRef.current || !window.L) return;
     layerRef.current.clearLayers();
     dd.forEach(d => {
-      const coords = CG_GEO[d.name];
-      if (!coords) return;
+      const info = CG_DISTRICTS[d.name];
+      if (!info) return;
       const val = getVal(d);
       const color = getColor(val);
       const fill = getFill(val);
       const isSel = selected === d.name;
-      const poly = window.L.polygon(coords, { color: isSel ? "#C2410C" : color, weight: isSel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.75, smoothFactor: 1.5 });
-      poly.on("click", () => setSelected(prev => prev === d.name ? null : d.name));
-      const center = poly.getBounds().getCenter();
+      const center = window.L.latLng(info.lat, info.lng);
+      const circle = window.L.circleMarker(center, { radius: isSel ? info.radius + 4 : info.radius, color: isSel ? "#C2410C" : color, weight: isSel ? 3 : 1.5, fillColor: fill, fillOpacity: 0.8 });
+      circle.on("click", () => setSelected(prev => prev === d.name ? null : d.name));
       const label = window.L.divIcon({
         className: "", html: '<div style="text-align:center;pointer-events:none"><div style="font-size:10px;font-weight:700;color:#1F2937;text-shadow:0 0 3px #fff,0 0 3px #fff">' + d.name + '</div><div style="font-size:11px;font-weight:800;color:' + color + ';text-shadow:0 0 3px #fff,0 0 3px #fff">' + (mapMetric === "totalCases" ? (val >= 1000 ? (val/1000).toFixed(0)+"k" : val) : val.toFixed(0) + "%") + '</div></div>',
         iconSize: [80, 30], iconAnchor: [40, 15],
       });
       window.L.marker(center, { icon: label, interactive: false }).addTo(layerRef.current);
-      poly.addTo(layerRef.current);
+      circle.addTo(layerRef.current);
     });
   }, [dd, mapMetric, selected, mapReady]);
 
