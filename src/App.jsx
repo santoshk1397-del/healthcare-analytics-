@@ -231,6 +231,14 @@ function computeTotals(dd) {
   return { totalPopulation: dd.reduce((s, d) => s + (d.population || 0), 0), totalCases: dd.reduce((s, d) => s + d.totalCases, 0), avgScreening: (dd.reduce((s, d) => s + parseFloat(d.screeningRate), 0) / n).toFixed(1), avgBudgetUtil: (dd.reduce((s, d) => s + d.budgetUtilized, 0) / n * 100).toFixed(1), totalBudget: dd.reduce((s, d) => s + d.budgetAllocated, 0), avgDrugAvail: (dd.reduce((s, d) => s + parseFloat(d.drugAvailability), 0) / n).toFixed(1), avgHrFill: (dd.reduce((s, d) => s + d.hrFilled, 0) / n * 100).toFixed(1) };
 }
 
+//date format fix for charts
+function formatMonth(dateStr) {
+  const d = new Date(dateStr);
+  const month = d.toLocaleString("en-IN", { month: "short" }); // Apr
+  const year = String(d.getFullYear()).slice(-2); // 26
+  return `${month}' ${year}`;
+}
+
 // ─── Diease Monthly Data ─── 
 function getDiseaseMonthlyData(rows, district, dateFrom, dateTo) {
   return rows
