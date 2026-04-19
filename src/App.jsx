@@ -938,6 +938,11 @@ function Reports({ rawRows, role, onAskAI }) {
   const [timeRange, setTimeRange] = useState("12m");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [axisX, setAxisX] = useState("screeningRate");
+  const [axisY, setAxisY] = useState("drugAvailability");
+  const [sizeBy, setSizeBy] = useState("totalCases");
+  const [selDists, setSelDists] = useState([]);
+  const [analysisResult, setAnalysisResult] = useState(null);
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
   const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
@@ -1936,12 +1941,6 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
 
       {/* Analytics Workbench */}
       {tab === "analytics" && (() => {
-        const [axisX, setAxisX] = React.useState("screeningRate");
-        const [axisY, setAxisY] = React.useState("drugAvailability");
-        const [sizeBy, setSizeBy] = React.useState("totalCases");
-        const [colorBy, setColorBy] = React.useState("zone");
-        const [selDists, setSelDists] = React.useState([]);
-        const [analysisResult, setAnalysisResult] = React.useState(null);
 
         const METRIC_OPTS = [
           { key: "screeningRate", label: "Screening %", get: d => parseFloat(d.screeningRate) || 0 },
