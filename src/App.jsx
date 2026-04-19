@@ -2123,29 +2123,42 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
               if (fcTs.length < 3) return <div style={{ textAlign: "center", padding: 20, color: P.textDim, fontSize: 12 }}>Need at least 3 months of data.</div>;
               const getVal = (t) => fcMetric === "cases" ? t.cases : fcMetric === "screening" ? Math.round(t.scrPct * 10) / 10 : fcMetric === "drugs" ? (t.drugPct || 0) : (t.budPct || 0);
               const historical = fcTs.map((t, i) => ({ label: t.label, value: getVal(t), i }));
-              const xArr = historical.map((_, i) => i), yArr = historical.map(h => h.value), nH = xArr.length;
-              const xMean = xArr.reduce((a, b) => a + b, 0) / nH, yMean = yArr.reduce((a, b) => a + b, 0) / nH;
-              let numR = 0, denR = 0;
-              for (let i = 0; i < nH; i++) { numR += (xArr[i] - xMean) * (yArr[i] - yMean); denR += (xArr[i] - xMean) ** 2; }
-              const slope = denR ? numR / denR : 0, intercept = yMean - slope * xMean;
+              // Exponential weighted regression — recent months count 3x more
+              const nH = historical.length;
+              const weights = historical.map((_, i) => Math.pow(1.15, i)); // exponential growth toward recent
+              const wSum = weights.reduce((a, b) => a + b, 0);
+              const xArr = historical.map((_, i) => i), yArr = historical.map(h => h.value);
+              const wxMean = xArr.reduce((s, x, i) => s + x * weights[i], 0) / wSum;
+              const wyMean = yArr.reduce((s, y, i) => s + y * weights[i], 0) / wSum;
+              let wNum = 0, wDen = 0;
+              for (let i = 0; i < nH; i++) { wNum += weights[i] * (xArr[i] - wxMean) * (yArr[i] - wyMean); wDen += weights[i] * (xArr[i] - wxMean) ** 2; }
+              const slope = wDen ? wNum / wDen : 0;
+              const intercept = wyMean - slope * wxMean;
+              // Amplify with recent momentum — avg of last 3 month-over-month changes
+              const recent = yArr.slice(-4);
+              const momChanges = [];
+              for (let i = 1; i < recent.length; i++) momChanges.push(recent[i] - recent[i - 1]);
+              const momentum = momChanges.length ? momChanges.reduce((a, b) => a + b, 0) / momChanges.length : 0;
+              // Blend: 60% weighted regression + 40% recent momentum
+              const blendedSlope = slope * 0.6 + momentum * 0.4;
               const MNAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
               const lastParts = historical[historical.length - 1].label.split(" ");
               let fmIdx = MNAMES.indexOf(lastParts[0]), fmYear = parseInt(lastParts[1]);
               const forecast = [];
-              for (let f = 1; f <= fcMonths; f++) { fmIdx++; if (fmIdx > 11) { fmIdx = 0; fmYear++; } forecast.push({ label: `${MNAMES[fmIdx]} ${fmYear}`, value: Math.max(0, Math.round((intercept + slope * (nH - 1 + f)) * 10) / 10), i: nH - 1 + f }); }
+              for (let f = 1; f <= fcMonths; f++) { fmIdx++; if (fmIdx > 11) { fmIdx = 0; fmYear++; } forecast.push({ label: `${MNAMES[fmIdx]} ${fmYear}`, value: Math.max(0, Math.round((historical[nH - 1].value + blendedSlope * f) * 10) / 10), i: nH - 1 + f }); }
               const all = [...historical, ...forecast], maxVal = Math.max(...all.map(d => d.value), 1);
               const cW = 600, cH = 200, pL = 50, pR = 20, pT = 15, pB = 35, plW = cW - pL - pR, plH = cH - pT - pB;
               const stp = plW / (all.length - 1 || 1);
               const tX = (i) => pL + i * stp, tY = (v) => pT + plH - (v / maxVal) * plH;
               const hPath = historical.map((d, i) => `${i === 0 ? "M" : "L"}${tX(i).toFixed(1)},${tY(d.value).toFixed(1)}`).join(" ");
               const fPath = [historical[historical.length - 1], ...forecast].map((d, i) => `${i === 0 ? "M" : "L"}${tX(d.i).toFixed(1)},${tY(d.value).toFixed(1)}`).join(" ");
-              const bU = forecast.map(d => `${tX(d.i).toFixed(1)},${tY(Math.min(maxVal, d.value * 1.15)).toFixed(1)}`);
-              const bL = [...forecast].reverse().map(d => `${tX(d.i).toFixed(1)},${tY(Math.max(0, d.value * 0.85)).toFixed(1)}`);
+              const bU = forecast.map(d => `${tX(d.i).toFixed(1)},${tY(Math.min(maxVal, d.value * 1.25)).toFixed(1)}`);
+              const bL = [...forecast].reverse().map(d => `${tX(d.i).toFixed(1)},${tY(Math.max(0, d.value * 0.75)).toFixed(1)}`);
               const bandPath = `M${tX(nH - 1).toFixed(1)},${tY(historical[nH - 1].value).toFixed(1)} L${bU.join(" L")} L${bL.join(" L")} Z`;
               const lastVal = historical[nH - 1].value, endVal = forecast[forecast.length - 1].value;
               const changePct = lastVal > 0 ? (((endVal - lastVal) / lastVal) * 100).toFixed(1) : "0";
-              const trendDir = slope > 0.5 ? "upward" : slope < -0.5 ? "downward" : "stable";
-              const trendColor = fcMetric === "cases" ? (slope > 0 ? P.red : P.green) : (slope > 0 ? P.green : P.red);
+              const trendDir = blendedSlope > 0.2 ? "upward" : blendedSlope < -0.2 ? "downward" : "stable";
+              const trendColor = fcMetric === "cases" ? (blendedSlope > 0 ? P.red : P.green) : (blendedSlope > 0 ? P.green : P.red);
               return <div>
                 <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", maxHeight: 220 }}>
                   {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}><line x1={pL} y1={pT + t * plH} x2={cW - pR} y2={pT + t * plH} stroke={P.border} strokeWidth={0.5} /><text x={pL - 6} y={pT + t * plH + 3} textAnchor="end" fontSize={8} fill={P.textDim}>{(maxVal * (1 - t)).toFixed(0)}</text></g>)}
@@ -2165,7 +2178,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
                   <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Change</div><div style={{ fontSize: 18, fontWeight: 800, color: trendColor }}>{changePct > 0 ? "+" : ""}{changePct}%</div></div>
                   <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Trend</div><div style={{ fontSize: 18, fontWeight: 800, color: trendColor }}>{trendDir === "upward" ? "↑" : trendDir === "downward" ? "↓" : "→"} {trendDir}</div></div>
                 </div>
-                <button onClick={() => onAskAI && onAskAI(`The ${fcMetric} trend for ${fcDistrict === "all" ? "the state" : fcDistrict} is ${trendDir} (slope: ${slope.toFixed(2)}/month). Current: ${lastVal}, projected ${fcMonths}-month: ${endVal} (${changePct}% change). What factors explain this and what should be planned?`)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI about this forecast →</button>
+                <button onClick={() => onAskAI && onAskAI(`The ${fcMetric} trend for ${fcDistrict === "all" ? "the state" : fcDistrict} is ${trendDir} (slope: ${blendedSlope.toFixed(2)}/month). Current: ${lastVal}, projected ${fcMonths}-month: ${endVal} (${changePct}% change). What factors explain this and what should be planned?`)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI about this forecast →</button>
               </div>;
             })()}
           </div>
