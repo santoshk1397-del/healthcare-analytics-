@@ -943,6 +943,9 @@ function Reports({ rawRows, role, onAskAI }) {
   const [sizeBy, setSizeBy] = useState("totalCases");
   const [selDists, setSelDists] = useState([]);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [fcMetric, setFcMetric] = useState("cases");
+  const [fcDistrict, setFcDistrict] = useState("all");
+  const [fcMonths, setFcMonths] = useState(3);
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
   const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
@@ -2089,6 +2092,83 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
             </div>
             <button onClick={() => onAskAI && onAskAI(`Analyze the correlation between ${gX.label} and ${gY.label} across all districts. Top performers: ${analysisResult.top5.map(d => d.name).join(", ")}. Bottom performers: ${analysisResult.bot5.map(d => d.name).join(", ")}. Correlation r=${analysisResult.r}. What explains this pattern and what interventions would help?`)} style={{ marginTop: 12, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI for deeper analysis →</button>
           </div>}
+
+          {/* ── Forecasting Section ── */}
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 4 }}>Trend forecasting</div>
+            <div style={{ fontSize: 11, color: P.textDim, marginBottom: 16 }}>Linear projection based on historical data</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: P.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Metric</div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[{ k: "cases", l: "Cases" }, { k: "screening", l: "Screening %" }, { k: "drugs", l: "Drugs %" }, { k: "budget", l: "Budget %" }].map(m => <button key={m.k} onClick={() => setFcMetric(m.k)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${fcMetric === m.k ? P.accent : P.border}`, background: fcMetric === m.k ? P.accentGlow : P.surface, color: fcMetric === m.k ? P.accent : P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{m.l}</button>)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: P.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>District</div>
+                <select value={fcDistrict} onChange={e => setFcDistrict(e.target.value)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${P.border}`, background: P.surface, color: P.text, fontSize: 11, fontFamily: "'DM Sans'" }}>
+                  <option value="all">All (State avg)</option>
+                  {districtNames.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: P.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Horizon</div>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[3, 6, 12].map(m => <button key={m} onClick={() => setFcMonths(m)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${fcMonths === m ? P.accent : P.border}`, background: fcMonths === m ? P.accentGlow : P.surface, color: fcMonths === m ? P.accent : P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{m}mo</button>)}
+                </div>
+              </div>
+            </div>
+            {(() => {
+              const fcTs = buildTimeSeries(rawRows, { district: fcDistrict === "all" ? "all" : fcDistrict });
+              if (fcTs.length < 3) return <div style={{ textAlign: "center", padding: 20, color: P.textDim, fontSize: 12 }}>Need at least 3 months of data.</div>;
+              const getVal = (t) => fcMetric === "cases" ? t.cases : fcMetric === "screening" ? Math.round(t.scrPct * 10) / 10 : fcMetric === "drugs" ? (t.drugPct || 0) : (t.budPct || 0);
+              const historical = fcTs.map((t, i) => ({ label: t.label, value: getVal(t), i }));
+              const xArr = historical.map((_, i) => i), yArr = historical.map(h => h.value), nH = xArr.length;
+              const xMean = xArr.reduce((a, b) => a + b, 0) / nH, yMean = yArr.reduce((a, b) => a + b, 0) / nH;
+              let numR = 0, denR = 0;
+              for (let i = 0; i < nH; i++) { numR += (xArr[i] - xMean) * (yArr[i] - yMean); denR += (xArr[i] - xMean) ** 2; }
+              const slope = denR ? numR / denR : 0, intercept = yMean - slope * xMean;
+              const MNAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+              const lastParts = historical[historical.length - 1].label.split(" ");
+              let fmIdx = MNAMES.indexOf(lastParts[0]), fmYear = parseInt(lastParts[1]);
+              const forecast = [];
+              for (let f = 1; f <= fcMonths; f++) { fmIdx++; if (fmIdx > 11) { fmIdx = 0; fmYear++; } forecast.push({ label: `${MNAMES[fmIdx]} ${fmYear}`, value: Math.max(0, Math.round((intercept + slope * (nH - 1 + f)) * 10) / 10), i: nH - 1 + f }); }
+              const all = [...historical, ...forecast], maxVal = Math.max(...all.map(d => d.value), 1);
+              const cW = 600, cH = 200, pL = 50, pR = 20, pT = 15, pB = 35, plW = cW - pL - pR, plH = cH - pT - pB;
+              const stp = plW / (all.length - 1 || 1);
+              const tX = (i) => pL + i * stp, tY = (v) => pT + plH - (v / maxVal) * plH;
+              const hPath = historical.map((d, i) => `${i === 0 ? "M" : "L"}${tX(i).toFixed(1)},${tY(d.value).toFixed(1)}`).join(" ");
+              const fPath = [historical[historical.length - 1], ...forecast].map((d, i) => `${i === 0 ? "M" : "L"}${tX(d.i).toFixed(1)},${tY(d.value).toFixed(1)}`).join(" ");
+              const bU = forecast.map(d => `${tX(d.i).toFixed(1)},${tY(Math.min(maxVal, d.value * 1.15)).toFixed(1)}`);
+              const bL = [...forecast].reverse().map(d => `${tX(d.i).toFixed(1)},${tY(Math.max(0, d.value * 0.85)).toFixed(1)}`);
+              const bandPath = `M${tX(nH - 1).toFixed(1)},${tY(historical[nH - 1].value).toFixed(1)} L${bU.join(" L")} L${bL.join(" L")} Z`;
+              const lastVal = historical[nH - 1].value, endVal = forecast[forecast.length - 1].value;
+              const changePct = lastVal > 0 ? (((endVal - lastVal) / lastVal) * 100).toFixed(1) : "0";
+              const trendDir = slope > 0.5 ? "upward" : slope < -0.5 ? "downward" : "stable";
+              const trendColor = fcMetric === "cases" ? (slope > 0 ? P.red : P.green) : (slope > 0 ? P.green : P.red);
+              return <div>
+                <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", maxHeight: 220 }}>
+                  {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}><line x1={pL} y1={pT + t * plH} x2={cW - pR} y2={pT + t * plH} stroke={P.border} strokeWidth={0.5} /><text x={pL - 6} y={pT + t * plH + 3} textAnchor="end" fontSize={8} fill={P.textDim}>{(maxVal * (1 - t)).toFixed(0)}</text></g>)}
+                  <line x1={tX(nH - 1)} y1={pT} x2={tX(nH - 1)} y2={pT + plH} stroke={P.textDim} strokeWidth={0.5} strokeDasharray="4,3" />
+                  <text x={tX(nH - 1) - 4} y={pT + 10} textAnchor="end" fontSize={7} fill={P.textDim}>Actual</text>
+                  <text x={tX(nH - 1) + 4} y={pT + 10} textAnchor="start" fontSize={7} fill={P.accent}>Forecast</text>
+                  <path d={bandPath} fill={`${P.accent}10`} />
+                  <path d={hPath} fill="none" stroke={P.text} strokeWidth={2} />
+                  <path d={fPath} fill="none" stroke={P.accent} strokeWidth={2} strokeDasharray="6,3" />
+                  {historical.map((d, i) => <circle key={`h${i}`} cx={tX(i)} cy={tY(d.value)} r={2} fill={P.text} />)}
+                  {forecast.map((d, i) => <circle key={`f${i}`} cx={tX(d.i)} cy={tY(d.value)} r={3} fill={P.accent} stroke="#fff" strokeWidth={1} />)}
+                  {all.filter((_, i) => i % Math.max(1, Math.floor(all.length / 8)) === 0 || i === all.length - 1).map(d => <text key={d.label} x={tX(d.i)} y={cH - 5} textAnchor="middle" fontSize={7} fill={d.i >= nH ? P.accent : P.textDim}>{d.label}</text>)}
+                </svg>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginTop: 14 }}>
+                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Current</div><div style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{lastVal.toLocaleString()}</div></div>
+                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Projected ({fcMonths}mo)</div><div style={{ fontSize: 18, fontWeight: 800, color: P.accent }}>{endVal.toLocaleString()}</div></div>
+                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Change</div><div style={{ fontSize: 18, fontWeight: 800, color: trendColor }}>{changePct > 0 ? "+" : ""}{changePct}%</div></div>
+                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Trend</div><div style={{ fontSize: 18, fontWeight: 800, color: trendColor }}>{trendDir === "upward" ? "↑" : trendDir === "downward" ? "↓" : "→"} {trendDir}</div></div>
+                </div>
+                <button onClick={() => onAskAI && onAskAI(`The ${fcMetric} trend for ${fcDistrict === "all" ? "the state" : fcDistrict} is ${trendDir} (slope: ${slope.toFixed(2)}/month). Current: ${lastVal}, projected ${fcMonths}-month: ${endVal} (${changePct}% change). What factors explain this and what should be planned?`)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI about this forecast →</button>
+              </div>;
+            })()}
+          </div>
         </div>;
       })()}
 
