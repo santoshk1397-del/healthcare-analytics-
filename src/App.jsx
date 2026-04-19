@@ -938,14 +938,6 @@ function Reports({ rawRows, role, onAskAI }) {
   const [timeRange, setTimeRange] = useState("12m");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
-  const [axisX, setAxisX] = useState("screeningRate");
-  const [axisY, setAxisY] = useState("drugAvailability");
-  const [sizeBy, setSizeBy] = useState("totalCases");
-  const [selDists, setSelDists] = useState([]);
-  const [analysisResult, setAnalysisResult] = useState(null);
-  const [fcMetric, setFcMetric] = useState("cases");
-  const [fcDistrict, setFcDistrict] = useState("all");
-  const [fcMonths, setFcMonths] = useState(3);
   const districtNames = [...new Set(rawRows.map(r => r.district_name))].sort();
 
   const filteredRows = fDisease === "all" ? rawRows : rawRows.filter(r => r.disease_type === fDisease);
@@ -959,7 +951,7 @@ function Reports({ rawRows, role, onAskAI }) {
   // Time-series data respecting filters
   const ts = buildTimeSeries(filteredRows, { district: fDistrict, dateFrom, dateTo });
 
-  const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }, ...(role && (role.label.includes("Admin") || role.label.includes("Analyst")) ? [{ id: "analytics", l: "Analytics" }] : [])];
+  const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
   const [showDQModal, setShowDQModal] = useState(false);
 
@@ -1869,46 +1861,7 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
               })}
             </div>
           </div>
-
-        {/* Correlation Explorer */}
-        <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>Metric correlations</span><AskAIBtn question="What are the strongest correlations between NCD metrics like screening, HR, drugs, and budget? What insights can we draw?" onAsk={onAskAI} /></div>
-          {(() => {
-            const metrics = [
-              { key: "screeningRate", label: "Screening" },
-              { key: "drugAvailability", label: "Drugs" },
-              { key: "budgetUtilized", label: "Budget" },
-              { key: "hrFilled", label: "HR Fill" },
-            ];
-            const vals = (k) => fdd.map(d => k === "budgetUtilized" || k === "hrFilled" ? d[k] * 100 : parseFloat(d[k]) || 0);
-            const corr = (a, b) => {
-              const n = a.length; if (n < 3) return 0;
-              const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n;
-              let num = 0, da = 0, db = 0;
-              for (let i = 0; i < n; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; }
-              return da && db ? num / Math.sqrt(da * db) : 0;
-            };
-            const pairs = [];
-            for (let i = 0; i < metrics.length; i++) for (let j = i + 1; j < metrics.length; j++) {
-              const r = corr(vals(metrics[i].key), vals(metrics[j].key));
-              pairs.push({ a: metrics[i].label, b: metrics[j].label, r });
-            }
-            pairs.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
-            const strength = (r) => Math.abs(r) > 0.7 ? "Strong" : Math.abs(r) > 0.4 ? "Moderate" : "Weak";
-            const sColor = (r) => Math.abs(r) > 0.7 ? P.green : Math.abs(r) > 0.4 ? P.amber : P.textDim;
-            return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-              {pairs.map((p, i) => <div key={i} style={{ padding: "12px 16px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: P.text }}>{p.a} × {p.b}</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: sColor(p.r) }}>{p.r >= 0 ? "+" : ""}{p.r.toFixed(2)}</span>
-                </div>
-                <div style={{ height: 4, borderRadius: 2, background: P.surfaceAlt, overflow: "hidden" }}><div style={{ height: "100%", width: `${Math.abs(p.r) * 100}%`, borderRadius: 2, background: sColor(p.r) }} /></div>
-                <div style={{ fontSize: 10, color: P.textDim, marginTop: 4 }}>{strength(p.r)} {p.r >= 0 ? "positive" : "negative"}</div>
-              </div>)}
-            </div>;
-          })()}
-        </div>
-      </div>;
+        </div>;
       })()}
 
       {/* Screening */}
@@ -1941,249 +1894,6 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
         </div>
         <div className="ncd-budget-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: "#3B82F6" }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: "#F59E0B" }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
-
-      {/* Analytics Workbench */}
-      {tab === "analytics" && (() => {
-
-        const METRIC_OPTS = [
-          { key: "screeningRate", label: "Screening %", get: d => parseFloat(d.screeningRate) || 0 },
-          { key: "drugAvailability", label: "Drug Avail %", get: d => parseFloat(d.drugAvailability) || 0 },
-          { key: "budgetUtilized", label: "Budget Util %", get: d => (d.budgetUtilized || 0) * 100 },
-          { key: "hrFilled", label: "HR Fill %", get: d => (d.hrFilled || 0) * 100 },
-          { key: "totalCases", label: "Total Cases", get: d => d.totalCases || 0 },
-          { key: "prevalence", label: "Prevalence /100k", get: d => parseFloat(d.prevalence) || 0 },
-        ];
-        const getMetric = (key) => METRIC_OPTS.find(m => m.key === key);
-        const gX = getMetric(axisX), gY = getMetric(axisY), gS = getMetric(sizeBy);
-
-        // Compute correlation
-        const xVals = fdd.map(d => gX.get(d)), yVals = fdd.map(d => gY.get(d));
-        const n = xVals.length;
-        const meanX = xVals.reduce((a, b) => a + b, 0) / n, meanY = yVals.reduce((a, b) => a + b, 0) / n;
-        let num = 0, dx = 0, dy = 0;
-        for (let i = 0; i < n; i++) { num += (xVals[i] - meanX) * (yVals[i] - meanY); dx += (xVals[i] - meanX) ** 2; dy += (yVals[i] - meanY) ** 2; }
-        const r = dx && dy ? num / Math.sqrt(dx * dy) : 0;
-        const maxX = Math.max(...xVals, 1), maxY = Math.max(...yVals, 1), maxS = Math.max(...fdd.map(d => gS.get(d)), 1);
-        const ZONE_COLORS = { Raipur: "#C2410C", Bilaspur: "#1E40AF", Durg: "#059669", Surguja: "#7E22CE", Bastar: "#D97706" };
-
-        // Top/bottom ranker
-        const runAnalysis = () => {
-          const sorted = [...fdd].sort((a, b) => gX.get(b) - gX.get(a));
-          const top5 = sorted.slice(0, 5);
-          const bot5 = sorted.slice(-5).reverse();
-          const corrStr = Math.abs(r) > 0.7 ? "strong" : Math.abs(r) > 0.4 ? "moderate" : "weak";
-          setAnalysisResult({ top5, bot5, corrStr, r: r.toFixed(2) });
-        };
-
-        const selStyle = (key, cur) => ({ padding: "6px 10px", borderRadius: 6, border: `1px solid ${cur === key ? P.accent : P.border}`, background: cur === key ? P.accentGlow : P.surface, color: cur === key ? P.accent : P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" });
-
-        return <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Analytics workbench</div><div style={{ fontSize: 12, color: P.textDim, marginTop: 4 }}>Select metrics, explore correlations, and rank districts</div></div>
-
-          {/* Controls */}
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>X-Axis</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{METRIC_OPTS.map(m => <button key={m.key} onClick={() => setAxisX(m.key)} style={selStyle(m.key, axisX)}>{m.label}</button>)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Y-Axis</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{METRIC_OPTS.map(m => <button key={m.key} onClick={() => setAxisY(m.key)} style={selStyle(m.key, axisY)}>{m.label}</button>)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Bubble size</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{METRIC_OPTS.map(m => <button key={m.key} onClick={() => setSizeBy(m.key)} style={selStyle(m.key, sizeBy)}>{m.label}</button>)}</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-end" }}>
-                <button onClick={runAnalysis} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: P.accent, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Run analysis</button>
-              </div>
-            </div>
-          </div>
-
-          {/* Scatter plot */}
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{gX.label} vs {gY.label}</span>
-              <span style={{ fontSize: 12, padding: "3px 10px", borderRadius: 6, background: Math.abs(r) > 0.7 ? `${P.green}18` : Math.abs(r) > 0.4 ? `${P.amber}18` : `${P.textDim}18`, color: Math.abs(r) > 0.7 ? P.green : Math.abs(r) > 0.4 ? P.amber : P.textDim, fontWeight: 700 }}>r = {r >= 0 ? "+" : ""}{r.toFixed(2)} · {Math.abs(r) > 0.7 ? "Strong" : Math.abs(r) > 0.4 ? "Moderate" : "Weak"}</span>
-            </div>
-            <svg viewBox="0 0 600 360" style={{ width: "100%", maxHeight: 360 }}>
-              {/* Grid */}
-              {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}>
-                <line x1={60} y1={20 + t * 300} x2={590} y2={20 + t * 300} stroke={P.border} strokeWidth={0.5} />
-                <text x={55} y={24 + t * 300} textAnchor="end" fontSize={9} fill={P.textDim}>{(maxY * (1 - t)).toFixed(0)}</text>
-              </g>)}
-              {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}>
-                <line x1={60 + t * 530} y1={20} x2={60 + t * 530} y2={320} stroke={P.border} strokeWidth={0.5} />
-                <text x={60 + t * 530} y={338} textAnchor="middle" fontSize={9} fill={P.textDim}>{(maxX * t).toFixed(0)}</text>
-              </g>)}
-              {/* Axis labels */}
-              <text x={325} y={355} textAnchor="middle" fontSize={10} fill={P.textMuted} fontWeight={600}>{gX.label}</text>
-              <text x={12} y={170} textAnchor="middle" fontSize={10} fill={P.textMuted} fontWeight={600} transform="rotate(-90,12,170)">{gY.label}</text>
-              {/* Bubbles */}
-              {fdd.map(d => {
-                const x = 60 + (gX.get(d) / maxX) * 530;
-                const y = 320 - (gY.get(d) / maxY) * 300;
-                const sz = 6 + (gS.get(d) / maxS) * 22;
-                const c = ZONE_COLORS[d.zone] || P.accent;
-                const isSel = selDists.includes(d.name);
-                return <g key={d.id}>
-                  <circle cx={x} cy={y} r={sz} fill={`${c}40`} stroke={isSel ? P.accent : c} strokeWidth={isSel ? 2.5 : 1} style={{ cursor: "pointer" }} onClick={() => setSelDists(prev => prev.includes(d.name) ? prev.filter(n => n !== d.name) : [...prev, d.name])} />
-                  {(sz > 12 || isSel) && <text x={x} y={y - sz - 3} textAnchor="middle" fontSize={8} fill={P.text} fontWeight={600}>{d.name.length > 10 ? d.name.slice(0, 8) + ".." : d.name}</text>}
-                </g>;
-              })}
-            </svg>
-            {/* Legend */}
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 8 }}>
-              {Object.entries(ZONE_COLORS).map(([zone, color]) => <div key={zone} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: P.textMuted }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />{zone}</div>)}
-            </div>
-          </div>
-
-          {/* Selected districts detail */}
-          {selDists.length > 0 && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: P.text }}>Selected districts ({selDists.length})</span>
-              <button onClick={() => setSelDists([])} style={{ fontSize: 10, color: P.textDim, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontFamily: "'DM Sans'" }}>Clear all</button>
-            </div>
-            <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead><tr>{["District", "Zone", gX.label, gY.label, gS.label].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: h === "District" || h === "Zone" ? "left" : "right", color: P.textDim, fontSize: 10, fontWeight: 600, borderBottom: `1px solid ${P.border}`, textTransform: "uppercase" }}>{h}</th>)}</tr></thead>
-              <tbody>{fdd.filter(d => selDists.includes(d.name)).map(d => <tr key={d.id}>
-                <td style={{ padding: "8px 12px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
-                <td style={{ padding: "8px 12px", color: ZONE_COLORS[d.zone] || P.textMuted, borderBottom: `1px solid ${P.border}`, fontWeight: 600, fontSize: 11 }}>{d.zone}</td>
-                <td style={{ padding: "8px 12px", textAlign: "right", color: P.text, borderBottom: `1px solid ${P.border}` }}>{gX.get(d).toFixed(1)}</td>
-                <td style={{ padding: "8px 12px", textAlign: "right", color: P.text, borderBottom: `1px solid ${P.border}` }}>{gY.get(d).toFixed(1)}</td>
-                <td style={{ padding: "8px 12px", textAlign: "right", color: P.text, fontWeight: 700, borderBottom: `1px solid ${P.border}` }}>{gS.get(d).toLocaleString()}</td>
-              </tr>)}</tbody>
-            </table></div>
-          </div>}
-
-          {/* Analysis results */}
-          {analysisResult && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: P.green, marginBottom: 10 }}>Top 5 — {gX.label}</div>
-              {analysisResult.top5.map((d, i) => <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < 4 ? `1px solid ${P.border}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", background: P.accentGlow, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: P.accent }}>{i + 1}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: P.text }}>{d.name}</span>
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: P.green }}>{gX.get(d).toFixed(1)}</span>
-              </div>)}
-            </div>
-            <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: P.red, marginBottom: 10 }}>Bottom 5 — {gX.label}</div>
-              {analysisResult.bot5.map((d, i) => <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < 4 ? `1px solid ${P.border}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#fef2f2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: P.red }}>{fdd.length - 4 + i}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: P.text }}>{d.name}</span>
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: P.red }}>{gX.get(d).toFixed(1)}</span>
-              </div>)}
-            </div>
-          </div>}
-
-          {analysisResult && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 8 }}>Correlation insight</div>
-            <div style={{ fontSize: 12, color: P.textMuted, lineHeight: 1.6 }}>
-              {gX.label} and {gY.label} show a <b style={{ color: Math.abs(r) > 0.7 ? P.green : Math.abs(r) > 0.4 ? P.amber : P.textDim }}>{analysisResult.corrStr} {r >= 0 ? "positive" : "negative"}</b> correlation (r = {analysisResult.r}).
-              {Math.abs(r) > 0.5 && r > 0 && ` Districts with higher ${gX.label.toLowerCase()} tend to also have higher ${gY.label.toLowerCase()}.`}
-              {Math.abs(r) > 0.5 && r < 0 && ` Districts with higher ${gX.label.toLowerCase()} tend to have lower ${gY.label.toLowerCase()}.`}
-              {Math.abs(r) <= 0.3 && ` These metrics appear largely independent of each other across districts.`}
-              {` The top performer in ${gX.label.toLowerCase()} is ${analysisResult.top5[0]?.name} at ${gX.get(analysisResult.top5[0]).toFixed(1)}, while ${analysisResult.bot5[0]?.name} is lowest at ${gX.get(analysisResult.bot5[0]).toFixed(1)}.`}
-            </div>
-            <button onClick={() => onAskAI && onAskAI(`Analyze the correlation between ${gX.label} and ${gY.label} across all districts. Top performers: ${analysisResult.top5.map(d => d.name).join(", ")}. Bottom performers: ${analysisResult.bot5.map(d => d.name).join(", ")}. Correlation r=${analysisResult.r}. What explains this pattern and what interventions would help?`)} style={{ marginTop: 12, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI for deeper analysis →</button>
-          </div>}
-
-          {/* ── Forecasting Section ── */}
-          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 4 }}>Trend forecasting</div>
-            <div style={{ fontSize: 11, color: P.textDim, marginBottom: 16 }}>Linear projection based on historical data</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", marginBottom: 20 }}>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: P.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Metric</div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {[{ k: "cases", l: "Cases" }, { k: "screening", l: "Screening %" }, { k: "drugs", l: "Drugs %" }, { k: "budget", l: "Budget %" }].map(m => <button key={m.k} onClick={() => setFcMetric(m.k)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${fcMetric === m.k ? P.accent : P.border}`, background: fcMetric === m.k ? P.accentGlow : P.surface, color: fcMetric === m.k ? P.accent : P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{m.l}</button>)}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: P.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>District</div>
-                <select value={fcDistrict} onChange={e => setFcDistrict(e.target.value)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${P.border}`, background: P.surface, color: P.text, fontSize: 11, fontFamily: "'DM Sans'" }}>
-                  <option value="all">All (State avg)</option>
-                  {districtNames.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: P.textDim, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Horizon</div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {[3, 6, 12].map(m => <button key={m} onClick={() => setFcMonths(m)} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${fcMonths === m ? P.accent : P.border}`, background: fcMonths === m ? P.accentGlow : P.surface, color: fcMonths === m ? P.accent : P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" }}>{m}mo</button>)}
-                </div>
-              </div>
-            </div>
-            {(() => {
-              const fcTs = buildTimeSeries(rawRows, { district: fcDistrict === "all" ? "all" : fcDistrict });
-              if (fcTs.length < 3) return <div style={{ textAlign: "center", padding: 20, color: P.textDim, fontSize: 12 }}>Need at least 3 months of data.</div>;
-              const getVal = (t) => fcMetric === "cases" ? t.cases : fcMetric === "screening" ? Math.round(t.scrPct * 10) / 10 : fcMetric === "drugs" ? (t.drugPct || 0) : (t.budPct || 0);
-              const historical = fcTs.map((t, i) => ({ label: t.label, value: getVal(t), i }));
-              // Exponential weighted regression — recent months count 3x more
-              const nH = historical.length;
-              const weights = historical.map((_, i) => Math.pow(1.15, i)); // exponential growth toward recent
-              const wSum = weights.reduce((a, b) => a + b, 0);
-              const xArr = historical.map((_, i) => i), yArr = historical.map(h => h.value);
-              const wxMean = xArr.reduce((s, x, i) => s + x * weights[i], 0) / wSum;
-              const wyMean = yArr.reduce((s, y, i) => s + y * weights[i], 0) / wSum;
-              let wNum = 0, wDen = 0;
-              for (let i = 0; i < nH; i++) { wNum += weights[i] * (xArr[i] - wxMean) * (yArr[i] - wyMean); wDen += weights[i] * (xArr[i] - wxMean) ** 2; }
-              const slope = wDen ? wNum / wDen : 0;
-              const intercept = wyMean - slope * wxMean;
-              // Amplify with recent momentum — avg of last 3 month-over-month changes
-              const recent = yArr.slice(-4);
-              const momChanges = [];
-              for (let i = 1; i < recent.length; i++) momChanges.push(recent[i] - recent[i - 1]);
-              const momentum = momChanges.length ? momChanges.reduce((a, b) => a + b, 0) / momChanges.length : 0;
-              // Blend: 60% weighted regression + 40% recent momentum
-              const blendedSlope = slope * 0.6 + momentum * 0.4;
-              const MNAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-              const lastParts = historical[historical.length - 1].label.split(" ");
-              let fmIdx = MNAMES.indexOf(lastParts[0]), fmYear = parseInt(lastParts[1]);
-              const forecast = [];
-              for (let f = 1; f <= fcMonths; f++) { fmIdx++; if (fmIdx > 11) { fmIdx = 0; fmYear++; } forecast.push({ label: `${MNAMES[fmIdx]} ${fmYear}`, value: Math.max(0, Math.round((historical[nH - 1].value + blendedSlope * f) * 10) / 10), i: nH - 1 + f }); }
-              const all = [...historical, ...forecast], maxVal = Math.max(...all.map(d => d.value), 1);
-              const cW = 600, cH = 200, pL = 50, pR = 20, pT = 15, pB = 35, plW = cW - pL - pR, plH = cH - pT - pB;
-              const stp = plW / (all.length - 1 || 1);
-              const tX = (i) => pL + i * stp, tY = (v) => pT + plH - (v / maxVal) * plH;
-              const hPath = historical.map((d, i) => `${i === 0 ? "M" : "L"}${tX(i).toFixed(1)},${tY(d.value).toFixed(1)}`).join(" ");
-              const fPath = [historical[historical.length - 1], ...forecast].map((d, i) => `${i === 0 ? "M" : "L"}${tX(d.i).toFixed(1)},${tY(d.value).toFixed(1)}`).join(" ");
-              const bU = forecast.map(d => `${tX(d.i).toFixed(1)},${tY(Math.min(maxVal, d.value * 1.25)).toFixed(1)}`);
-              const bL = [...forecast].reverse().map(d => `${tX(d.i).toFixed(1)},${tY(Math.max(0, d.value * 0.75)).toFixed(1)}`);
-              const bandPath = `M${tX(nH - 1).toFixed(1)},${tY(historical[nH - 1].value).toFixed(1)} L${bU.join(" L")} L${bL.join(" L")} Z`;
-              const lastVal = historical[nH - 1].value, endVal = forecast[forecast.length - 1].value;
-              const changePct = lastVal > 0 ? (((endVal - lastVal) / lastVal) * 100).toFixed(1) : "0";
-              const trendDir = blendedSlope > 0.2 ? "upward" : blendedSlope < -0.2 ? "downward" : "stable";
-              const trendColor = fcMetric === "cases" ? (blendedSlope > 0 ? P.red : P.green) : (blendedSlope > 0 ? P.green : P.red);
-              return <div>
-                <svg viewBox={`0 0 ${cW} ${cH}`} style={{ width: "100%", maxHeight: 220 }}>
-                  {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}><line x1={pL} y1={pT + t * plH} x2={cW - pR} y2={pT + t * plH} stroke={P.border} strokeWidth={0.5} /><text x={pL - 6} y={pT + t * plH + 3} textAnchor="end" fontSize={8} fill={P.textDim}>{(maxVal * (1 - t)).toFixed(0)}</text></g>)}
-                  <line x1={tX(nH - 1)} y1={pT} x2={tX(nH - 1)} y2={pT + plH} stroke={P.textDim} strokeWidth={0.5} strokeDasharray="4,3" />
-                  <text x={tX(nH - 1) - 4} y={pT + 10} textAnchor="end" fontSize={7} fill={P.textDim}>Actual</text>
-                  <text x={tX(nH - 1) + 4} y={pT + 10} textAnchor="start" fontSize={7} fill={P.accent}>Forecast</text>
-                  <path d={bandPath} fill={`${P.accent}10`} />
-                  <path d={hPath} fill="none" stroke={P.text} strokeWidth={2} />
-                  <path d={fPath} fill="none" stroke={P.accent} strokeWidth={2} strokeDasharray="6,3" />
-                  {historical.map((d, i) => <circle key={`h${i}`} cx={tX(i)} cy={tY(d.value)} r={2} fill={P.text} />)}
-                  {forecast.map((d, i) => <circle key={`f${i}`} cx={tX(d.i)} cy={tY(d.value)} r={3} fill={P.accent} stroke="#fff" strokeWidth={1} />)}
-                  {all.filter((_, i) => i % Math.max(1, Math.floor(all.length / 8)) === 0 || i === all.length - 1).map(d => <text key={d.label} x={tX(d.i)} y={cH - 5} textAnchor="middle" fontSize={7} fill={d.i >= nH ? P.accent : P.textDim}>{d.label}</text>)}
-                </svg>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginTop: 14 }}>
-                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Current</div><div style={{ fontSize: 18, fontWeight: 800, color: P.text }}>{lastVal.toLocaleString()}</div></div>
-                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Projected ({fcMonths}mo)</div><div style={{ fontSize: 18, fontWeight: 800, color: P.accent }}>{endVal.toLocaleString()}</div></div>
-                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Change</div><div style={{ fontSize: 18, fontWeight: 800, color: trendColor }}>{changePct > 0 ? "+" : ""}{changePct}%</div></div>
-                  <div style={{ padding: "10px 14px", borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}><div style={{ fontSize: 10, color: P.textDim }}>Trend</div><div style={{ fontSize: 18, fontWeight: 800, color: trendColor }}>{trendDir === "upward" ? "↑" : trendDir === "downward" ? "↓" : "→"} {trendDir}</div></div>
-                </div>
-                <button onClick={() => onAskAI && onAskAI(`The ${fcMetric} trend for ${fcDistrict === "all" ? "the state" : fcDistrict} is ${trendDir} (slope: ${blendedSlope.toFixed(2)}/month). Current: ${lastVal}, projected ${fcMonths}-month: ${endVal} (${changePct}% change). What factors explain this and what should be planned?`)} style={{ marginTop: 14, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI about this forecast →</button>
-              </div>;
-            })()}
-          </div>
-        </div>;
-      })()}
 
       {/* Alerts */}
       {/* Alerts tab removed — merged into dashboard banner */}
@@ -2314,6 +2024,80 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
     if (!inp.trim() || loading) return;
     const msg = inp.trim(); setInp("");
     if (inpRef.current) inpRef.current.style.height = "auto";
+
+    // ── Local analysis engine — parse query and compute results ──
+    const runLocalAnalysis = (query) => {
+      const q = query.toLowerCase();
+      const result = { type: null, data: null };
+
+      // Detect district names in query
+      const mentionedDists = dd.filter(d => q.includes(d.name.toLowerCase()));
+
+      // "compare X and Y" or "X vs Y"
+      if ((q.includes("compare") || q.includes(" vs ") || q.includes("versus")) && mentionedDists.length >= 2) {
+        result.type = "compare";
+        result.data = mentionedDists.map(d => ({
+          name: d.name, zone: d.zone, cases: d.totalCases, screening: d.screeningRate,
+          drugs: d.drugAvailability, budget: (d.budgetUtilized * 100).toFixed(1),
+          hr: (d.hrFilled * 100).toFixed(1),
+          diseases: d.diseaseBreakdown.map(x => ({ disease: x.disease, cases: x.cases })),
+        }));
+      }
+      // "top/best/highest" or "bottom/worst/lowest" districts
+      else if (q.match(/\b(top|best|highest|leading)\b/)) {
+        const metric = q.includes("screening") ? "screeningRate" : q.includes("drug") ? "drugAvailability" : q.includes("budget") ? "budgetUtilized" : q.includes("hr") || q.includes("staff") ? "hrFilled" : "totalCases";
+        const sorted = [...dd].sort((a, b) => {
+          const av = metric === "budgetUtilized" || metric === "hrFilled" ? a[metric] * 100 : parseFloat(a[metric]) || a[metric];
+          const bv = metric === "budgetUtilized" || metric === "hrFilled" ? b[metric] * 100 : parseFloat(b[metric]) || b[metric];
+          return bv - av;
+        });
+        result.type = "ranking";
+        result.label = metric.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+        result.direction = "top";
+        result.data = sorted.slice(0, 5).map(d => ({
+          name: d.name, value: metric === "budgetUtilized" || metric === "hrFilled" ? (d[metric] * 100).toFixed(1) + "%" : metric === "totalCases" ? d[metric].toLocaleString() : d[metric] + "%",
+        }));
+      }
+      else if (q.match(/\b(bottom|worst|lowest|weakest|poor)\b/)) {
+        const metric = q.includes("screening") ? "screeningRate" : q.includes("drug") ? "drugAvailability" : q.includes("budget") ? "budgetUtilized" : q.includes("hr") || q.includes("staff") ? "hrFilled" : "totalCases";
+        const sorted = [...dd].sort((a, b) => {
+          const av = metric === "budgetUtilized" || metric === "hrFilled" ? a[metric] * 100 : parseFloat(a[metric]) || a[metric];
+          const bv = metric === "budgetUtilized" || metric === "hrFilled" ? b[metric] * 100 : parseFloat(b[metric]) || b[metric];
+          return av - bv;
+        });
+        result.type = "ranking";
+        result.label = metric.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+        result.direction = "bottom";
+        result.data = sorted.slice(0, 5).map(d => ({
+          name: d.name, value: metric === "budgetUtilized" || metric === "hrFilled" ? (d[metric] * 100).toFixed(1) + "%" : metric === "totalCases" ? d[metric].toLocaleString() : d[metric] + "%",
+        }));
+      }
+      // Single district deep dive
+      else if (mentionedDists.length === 1) {
+        const d = mentionedDists[0];
+        result.type = "district";
+        result.data = {
+          name: d.name, zone: d.zone, population: d.population, cases: d.totalCases,
+          screening: d.screeningRate, drugs: d.drugAvailability,
+          budget: (d.budgetUtilized * 100).toFixed(1), hr: (d.hrFilled * 100).toFixed(1),
+          diseases: d.diseaseBreakdown.map(x => ({ disease: x.disease, cases: x.cases, trend: x.trend })),
+        };
+      }
+      // Summary / overview
+      else if (q.match(/\b(summary|overview|state|overall|how are we|status)\b/)) {
+        result.type = "summary";
+        result.data = {
+          totalCases: st.totalCases, avgScreening: st.avgScreening, avgDrugs: st.avgDrugAvail,
+          avgBudget: st.avgBudgetUtil, avgHr: st.avgHrFill, districts: dd.length,
+          topDistrict: [...dd].sort((a, b) => parseFloat(b.screeningRate) - parseFloat(a.screeningRate))[0]?.name,
+          bottomDistrict: [...dd].sort((a, b) => parseFloat(a.screeningRate) - parseFloat(b.screeningRate))[0]?.name,
+        };
+      }
+
+      return result.type ? result : null;
+    };
+
+    const analysis = runLocalAnalysis(msg);
     const next = [...msgs, { role: "user", content: msg }]; setMsgs(next); setLoading(true);
 
     const threadId = await ensureThread(msg);
@@ -2324,19 +2108,20 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
 
     try {
       const ctx = buildContext();
+      const analysisCtx = analysis ? `\n\nLOCAL ANALYSIS RESULT (pre-computed from data):\nType: ${analysis.type}\n${JSON.stringify(analysis.data, null, 2)}\n\nUse this data to give a specific, numbers-driven answer. Reference exact values from the analysis above.` : "";
       const apiMsgs = next.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-10);
       const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials.\n\nDATASET:\n${ctx}\n\nNATIONAL BENCHMARKS (NPCDCS/NHM/WHO):\nScreening target: ${BENCHMARKS.screening.target}% (national avg: ${BENCHMARKS.screening.national_avg}%) — ${BENCHMARKS.screening.source}\nDrug availability target: ${BENCHMARKS.drug_availability.target}% (national avg: ${BENCHMARKS.drug_availability.national_avg}%) — ${BENCHMARKS.drug_availability.source}\nBudget utilization target: ${BENCHMARKS.budget_utilization.target}% (national avg: ${BENCHMARKS.budget_utilization.national_avg}%) — ${BENCHMARKS.budget_utilization.source}\nHR fill target: ${BENCHMARKS.hr_fill.target}% (national avg: ${BENCHMARKS.hr_fill.national_avg}%) — ${BENCHMARKS.hr_fill.source}\n\nPEER STATES: Madhya Pradesh (Scr:48.2%), Rajasthan (58.7%), Odisha (55.1%), Jharkhand (42.5%)\n\nDISEASE NATIONAL PREVALENCE (per lakh): Diabetes:7700, Hypertension:28900, CVD:5400, COPD:5500, Cancer:940, Stroke:1190\n\nAPPROACH:\n1. ALWAYS analyze data above first. Cite specific numbers.\n2. Compare metrics against NPCDCS targets and national averages. Say "X district is at Y% vs national target of Z%".\n3. When comparing, reference peer states: "Chhattisgarh screening at X% is below Rajasthan (58.7%) but above Jharkhand (42.5%)".\n4. For disease analysis, compare state prevalence against national ICMR/NFHS estimates.\n5. For interventions, reference WHO PEN Protocol, NPCDCS guidelines, IHCI for hypertension.\n6. Be concise but thorough. Bullet points for clarity.\n\nAUDIENCE: Senior government officials. Professional, actionable, data-driven. Always cite the benchmark source.`,
+          system: `You are an expert NCD analytics AI assistant for Chhattisgarh state health officials.\n\nDATASET:\n${ctx}${analysisCtx}\n\nNATIONAL BENCHMARKS (NPCDCS/NHM/WHO):\nScreening target: ${BENCHMARKS.screening.target}% (national avg: ${BENCHMARKS.screening.national_avg}%) — ${BENCHMARKS.screening.source}\nDrug availability target: ${BENCHMARKS.drug_availability.target}% (national avg: ${BENCHMARKS.drug_availability.national_avg}%) — ${BENCHMARKS.drug_availability.source}\nBudget utilization target: ${BENCHMARKS.budget_utilization.target}% (national avg: ${BENCHMARKS.budget_utilization.national_avg}%) — ${BENCHMARKS.budget_utilization.source}\nHR fill target: ${BENCHMARKS.hr_fill.target}% (national avg: ${BENCHMARKS.hr_fill.national_avg}%) — ${BENCHMARKS.hr_fill.source}\n\nPEER STATES: Madhya Pradesh (Scr:48.2%), Rajasthan (58.7%), Odisha (55.1%), Jharkhand (42.5%)\n\nDISEASE NATIONAL PREVALENCE (per lakh): Diabetes:7700, Hypertension:28900, CVD:5400, COPD:5500, Cancer:940, Stroke:1190\n\nAPPROACH:\n1. ALWAYS analyze data above first. Cite specific numbers.\n2. Compare metrics against NPCDCS targets and national averages. Say "X district is at Y% vs national target of Z%".\n3. When comparing, reference peer states: "Chhattisgarh screening at X% is below Rajasthan (58.7%) but above Jharkhand (42.5%)".\n4. For disease analysis, compare state prevalence against national ICMR/NFHS estimates.\n5. For interventions, reference WHO PEN Protocol, NPCDCS guidelines, IHCI for hypertension.\n6. Be concise but thorough. Bullet points for clarity.\n\nAUDIENCE: Senior government officials. Professional, actionable, data-driven. Always cite the benchmark source.`,
           messages: apiMsgs,
         }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       const text = data.content?.filter(b => b.type === "text").map(b => b.text).filter(Boolean).join("\n") || "Could not process. Try again.";
-      setMsgs(p => [...p, { role: "assistant", content: text }]);
+      setMsgs(p => [...p, { role: "assistant", content: text, analysis }]);
       if (data.usage) {
         setTokenLog(prev => [...prev, {
           time: new Date().toISOString(),
@@ -2390,7 +2175,44 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
       <div className="ncd-chat-msgs" style={{ flex: 1, overflow: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
         {msgs.map((m, i) => <div key={i} style={{ display: "flex", gap: 12, flexDirection: m.role === "user" ? "row-reverse" : "row" }}>
           {m.role === "assistant" && <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div>}
-          <div className="ncd-chat-bubble" style={{ maxWidth: "75%", padding: "14px 18px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? P.accent : P.surface, border: m.role === "user" ? "none" : `1px solid ${P.border}`, color: m.role === "user" ? "#fff" : P.text, fontSize: 13.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{m.content}</div>
+          <div style={{ maxWidth: "75%", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="ncd-chat-bubble" style={{ padding: "14px 18px", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? P.accent : P.surface, border: m.role === "user" ? "none" : `1px solid ${P.border}`, color: m.role === "user" ? "#fff" : P.text, fontSize: 13.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{m.content}</div>
+            {/* Inline analysis cards */}
+            {m.analysis && m.analysis.type === "compare" && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 14, fontSize: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, textTransform: "uppercase", marginBottom: 10, letterSpacing: "0.05em" }}>Comparison</div>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${m.analysis.data.length}, 1fr)`, gap: 8 }}>
+                {m.analysis.data.map(d => <div key={d.name} style={{ padding: 10, borderRadius: 8, background: P.bg, border: `1px solid ${P.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 8 }}>{d.name}</div>
+                  {[{ l: "Screening", v: d.screening + "%", c: parseFloat(d.screening) > 55 ? P.green : P.red }, { l: "Drugs", v: d.drugs + "%", c: parseFloat(d.drugs) > 55 ? P.green : P.amber }, { l: "Budget", v: d.budget + "%", c: parseFloat(d.budget) > 55 ? P.green : P.amber }, { l: "HR", v: d.hr + "%", c: parseFloat(d.hr) > 55 ? P.green : P.amber }, { l: "Cases", v: d.cases.toLocaleString(), c: P.text }].map(m => <div key={m.l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${P.border}` }}><span style={{ color: P.textDim }}>{m.l}</span><span style={{ fontWeight: 700, color: m.c }}>{m.v}</span></div>)}
+                </div>)}
+              </div>
+            </div>}
+            {m.analysis && m.analysis.type === "ranking" && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 14, fontSize: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: m.analysis.direction === "top" ? P.green : P.red, textTransform: "uppercase", marginBottom: 8, letterSpacing: "0.05em" }}>{m.analysis.direction === "top" ? "Top" : "Bottom"} 5 — {m.analysis.label}</div>
+              {m.analysis.data.map((d, j) => <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: j < 4 ? `1px solid ${P.border}` : "none" }}>
+                <span style={{ width: 20, height: 20, borderRadius: "50%", background: m.analysis.direction === "top" ? `${P.green}18` : `${P.red}18`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: m.analysis.direction === "top" ? P.green : P.red }}>{j + 1}</span>
+                <span style={{ flex: 1, fontWeight: 600, color: P.text }}>{d.name}</span>
+                <span style={{ fontWeight: 700, color: m.analysis.direction === "top" ? P.green : P.red }}>{d.value}</span>
+              </div>)}
+            </div>}
+            {m.analysis && m.analysis.type === "district" && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 14, fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div><div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{m.analysis.data.name}</div><div style={{ fontSize: 10, color: P.textDim }}>{m.analysis.data.zone} zone · Pop {(m.analysis.data.population / 1e5).toFixed(1)}L</div></div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6, marginBottom: 10 }}>
+                {[{ l: "Screening", v: m.analysis.data.screening + "%", c: parseFloat(m.analysis.data.screening) > 55 ? P.green : P.red }, { l: "Drugs", v: m.analysis.data.drugs + "%", c: parseFloat(m.analysis.data.drugs) > 55 ? P.green : P.amber }, { l: "Budget", v: m.analysis.data.budget + "%", c: parseFloat(m.analysis.data.budget) > 55 ? P.green : P.amber }, { l: "HR Fill", v: m.analysis.data.hr + "%", c: parseFloat(m.analysis.data.hr) > 55 ? P.green : P.amber }].map(k => <div key={k.l} style={{ padding: "8px 10px", borderRadius: 6, background: P.bg, border: `1px solid ${P.border}`, textAlign: "center" }}><div style={{ fontSize: 16, fontWeight: 800, color: k.c }}>{k.v}</div><div style={{ fontSize: 9, color: P.textDim }}>{k.l}</div></div>)}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 4 }}>Disease breakdown</div>
+              {m.analysis.data.diseases.map(d => <div key={d.disease} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: `1px solid ${P.border}`, fontSize: 11 }}><span style={{ color: P.textMuted }}>{d.disease}</span><span style={{ fontWeight: 600, color: P.text }}>{d.cases.toLocaleString()} {d.trend ? <span style={{ color: d.trend > 0 ? P.red : P.green, fontSize: 10 }}>{d.trend > 0 ? "↑" : "↓"}{Math.abs(d.trend).toFixed(0)}%</span> : ""}</span></div>)}
+            </div>}
+            {m.analysis && m.analysis.type === "summary" && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 14, fontSize: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, textTransform: "uppercase", marginBottom: 10, letterSpacing: "0.05em" }}>State overview</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }}>
+                {[{ l: "Total Cases", v: m.analysis.data.totalCases.toLocaleString(), c: P.text }, { l: "Screening", v: m.analysis.data.avgScreening + "%", c: parseFloat(m.analysis.data.avgScreening) > 55 ? P.green : P.red }, { l: "Drugs", v: m.analysis.data.avgDrugs + "%", c: parseFloat(m.analysis.data.avgDrugs) > 55 ? P.green : P.amber }, { l: "Budget", v: m.analysis.data.avgBudget + "%", c: parseFloat(m.analysis.data.avgBudget) > 55 ? P.green : P.amber }, { l: "HR Fill", v: m.analysis.data.avgHr + "%", c: parseFloat(m.analysis.data.avgHr) > 55 ? P.green : P.amber }, { l: "Districts", v: m.analysis.data.districts, c: P.accent }].map(k => <div key={k.l} style={{ padding: "8px 10px", borderRadius: 6, background: P.bg, border: `1px solid ${P.border}`, textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 800, color: k.c }}>{k.v}</div><div style={{ fontSize: 9, color: P.textDim }}>{k.l}</div></div>)}
+              </div>
+              <div style={{ fontSize: 10, color: P.textDim, marginTop: 8, textAlign: "center" }}>Best: <b style={{ color: P.green }}>{m.analysis.data.topDistrict}</b> · Worst: <b style={{ color: P.red }}>{m.analysis.data.bottomDistrict}</b></div>
+            </div>}
+          </div>
         </div>)}
         {loading && <div style={{ display: "flex", gap: 12 }}><div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${P.accent}, ${P.purple})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><I.Bot /></div><div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: "16px 16px 16px 4px", padding: "14px 20px", display: "flex", gap: 6 }}>{[0,1,2].map(j => <div key={j} style={{ width: 7, height: 7, borderRadius: "50%", background: P.accent, animation: `pulse 1.2s ease ${j*0.2}s infinite` }} />)}</div></div>}
         <div ref={endRef} />
