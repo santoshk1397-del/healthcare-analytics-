@@ -2107,9 +2107,10 @@ function Chat({ dd, st, rawRows, pendingQuestion, onClearPending }) {
     }
 
     try {
-      const ctx = buildContext();
       const analysisCtx = analysis ? `\n\nLOCAL ANALYSIS RESULT (pre-computed from data):\nType: ${analysis.type}\n${JSON.stringify(analysis.data, null, 2)}\n\nUse this data to give a specific, numbers-driven answer. Reference exact values from the analysis above.` : "";
-      const apiMsgs = next.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-10);
+      // If we have local analysis, send minimal context. Otherwise send full dump.
+      const ctx = analysis ? `STATE: Chhattisgarh | Pop: ${(st.totalPopulation/1e6).toFixed(1)}M | Districts: ${dd.length} | Avg Screening: ${st.avgScreening}% | Avg Drugs: ${st.avgDrugAvail}% | Budget: ${st.avgBudgetUtil}% | HR: ${st.avgHrFill}%` : buildContext();
+      const apiMsgs = next.filter((m, i) => !(i === 0 && m.role === "assistant")).map(m => ({ role: m.role, content: m.content })).slice(-10);
       const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
