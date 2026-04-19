@@ -951,7 +951,7 @@ function Reports({ rawRows, role, onAskAI }) {
   // Time-series data respecting filters
   const ts = buildTimeSeries(filteredRows, { district: fDistrict, dateFrom, dateTo });
 
-  const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }];
+  const tabs = [{ id: "dashboard", l: "Dashboard" }, { id: "map", l: "Map" }, { id: "benchmarks", l: "Benchmarks" }, { id: "heatmap", l: "Heatmap" }, { id: "screening", l: "Screening" }, { id: "disease", l: "Disease Trends" }, { id: "budget", l: "Budget" }, ...(role && (role.label.includes("Admin") || role.label.includes("Analyst")) ? [{ id: "analytics", l: "Analytics" }] : [])];
   const totDis = DISEASES.map(dis => ({ disease: dis, cases: fdd.reduce((sum, d) => sum + (d.diseaseBreakdown.find(x => x.disease === dis)?.cases || 0), 0) }));
   const [showDQModal, setShowDQModal] = useState(false);
 
@@ -1933,6 +1933,165 @@ Return ONLY the JSON array, no markdown, no backticks, no preamble.`;
         </div>
         <div className="ncd-budget-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>{[...fdd].sort((a, b) => a.budgetUtilized - b.budgetUtilized).map(d => <div key={d.id} style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 10, padding: 18 }}><div style={{ fontSize: 14, fontWeight: 700, color: P.text, marginBottom: 14 }}>{d.name}</div>{[{ l: "Budget", v: d.budgetUtilized * 100, c: d.budgetUtilized > 0.75 ? P.green : d.budgetUtilized > 0.55 ? P.amber : P.red }, { l: "HR Fill", v: d.hrFilled * 100, c: "#3B82F6" }, { l: "Drugs", v: parseFloat(d.drugAvailability), c: "#F59E0B" }].map(m => <div key={m.l} style={{ marginBottom: 10 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: P.textDim, marginBottom: 5 }}><span>{m.l}</span><span style={{ fontWeight: 700, color: P.text }}>{m.v.toFixed(0)}%</span></div><Bar value={m.v} color={m.c} h={7} /></div>)}</div>)}</div>
       </div>}
+
+      {/* Analytics Workbench */}
+      {tab === "analytics" && (() => {
+        const [axisX, setAxisX] = React.useState("screeningRate");
+        const [axisY, setAxisY] = React.useState("drugAvailability");
+        const [sizeBy, setSizeBy] = React.useState("totalCases");
+        const [colorBy, setColorBy] = React.useState("zone");
+        const [selDists, setSelDists] = React.useState([]);
+        const [analysisResult, setAnalysisResult] = React.useState(null);
+
+        const METRIC_OPTS = [
+          { key: "screeningRate", label: "Screening %", get: d => parseFloat(d.screeningRate) || 0 },
+          { key: "drugAvailability", label: "Drug Avail %", get: d => parseFloat(d.drugAvailability) || 0 },
+          { key: "budgetUtilized", label: "Budget Util %", get: d => (d.budgetUtilized || 0) * 100 },
+          { key: "hrFilled", label: "HR Fill %", get: d => (d.hrFilled || 0) * 100 },
+          { key: "totalCases", label: "Total Cases", get: d => d.totalCases || 0 },
+          { key: "prevalence", label: "Prevalence /100k", get: d => parseFloat(d.prevalence) || 0 },
+        ];
+        const getMetric = (key) => METRIC_OPTS.find(m => m.key === key);
+        const gX = getMetric(axisX), gY = getMetric(axisY), gS = getMetric(sizeBy);
+
+        // Compute correlation
+        const xVals = fdd.map(d => gX.get(d)), yVals = fdd.map(d => gY.get(d));
+        const n = xVals.length;
+        const meanX = xVals.reduce((a, b) => a + b, 0) / n, meanY = yVals.reduce((a, b) => a + b, 0) / n;
+        let num = 0, dx = 0, dy = 0;
+        for (let i = 0; i < n; i++) { num += (xVals[i] - meanX) * (yVals[i] - meanY); dx += (xVals[i] - meanX) ** 2; dy += (yVals[i] - meanY) ** 2; }
+        const r = dx && dy ? num / Math.sqrt(dx * dy) : 0;
+        const maxX = Math.max(...xVals, 1), maxY = Math.max(...yVals, 1), maxS = Math.max(...fdd.map(d => gS.get(d)), 1);
+        const ZONE_COLORS = { Raipur: "#C2410C", Bilaspur: "#1E40AF", Durg: "#059669", Surguja: "#7E22CE", Bastar: "#D97706" };
+
+        // Top/bottom ranker
+        const runAnalysis = () => {
+          const sorted = [...fdd].sort((a, b) => gX.get(b) - gX.get(a));
+          const top5 = sorted.slice(0, 5);
+          const bot5 = sorted.slice(-5).reverse();
+          const corrStr = Math.abs(r) > 0.7 ? "strong" : Math.abs(r) > 0.4 ? "moderate" : "weak";
+          setAnalysisResult({ top5, bot5, corrStr, r: r.toFixed(2) });
+        };
+
+        const selStyle = (key, cur) => ({ padding: "6px 10px", borderRadius: 6, border: `1px solid ${cur === key ? P.accent : P.border}`, background: cur === key ? P.accentGlow : P.surface, color: cur === key ? P.accent : P.textMuted, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans'" });
+
+        return <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div><div style={{ fontSize: 18, fontWeight: 700, color: P.text }}>Analytics workbench</div><div style={{ fontSize: 12, color: P.textDim, marginTop: 4 }}>Select metrics, explore correlations, and rank districts</div></div>
+
+          {/* Controls */}
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>X-Axis</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{METRIC_OPTS.map(m => <button key={m.key} onClick={() => setAxisX(m.key)} style={selStyle(m.key, axisX)}>{m.label}</button>)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Y-Axis</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{METRIC_OPTS.map(m => <button key={m.key} onClick={() => setAxisY(m.key)} style={selStyle(m.key, axisY)}>{m.label}</button>)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: P.textDim, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Bubble size</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{METRIC_OPTS.map(m => <button key={m.key} onClick={() => setSizeBy(m.key)} style={selStyle(m.key, sizeBy)}>{m.label}</button>)}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button onClick={runAnalysis} style={{ padding: "10px 24px", borderRadius: 8, border: "none", background: P.accent, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Run analysis</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Scatter plot */}
+          <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 22 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{gX.label} vs {gY.label}</span>
+              <span style={{ fontSize: 12, padding: "3px 10px", borderRadius: 6, background: Math.abs(r) > 0.7 ? `${P.green}18` : Math.abs(r) > 0.4 ? `${P.amber}18` : `${P.textDim}18`, color: Math.abs(r) > 0.7 ? P.green : Math.abs(r) > 0.4 ? P.amber : P.textDim, fontWeight: 700 }}>r = {r >= 0 ? "+" : ""}{r.toFixed(2)} · {Math.abs(r) > 0.7 ? "Strong" : Math.abs(r) > 0.4 ? "Moderate" : "Weak"}</span>
+            </div>
+            <svg viewBox="0 0 600 360" style={{ width: "100%", maxHeight: 360 }}>
+              {/* Grid */}
+              {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}>
+                <line x1={60} y1={20 + t * 300} x2={590} y2={20 + t * 300} stroke={P.border} strokeWidth={0.5} />
+                <text x={55} y={24 + t * 300} textAnchor="end" fontSize={9} fill={P.textDim}>{(maxY * (1 - t)).toFixed(0)}</text>
+              </g>)}
+              {[0, 0.25, 0.5, 0.75, 1].map(t => <g key={t}>
+                <line x1={60 + t * 530} y1={20} x2={60 + t * 530} y2={320} stroke={P.border} strokeWidth={0.5} />
+                <text x={60 + t * 530} y={338} textAnchor="middle" fontSize={9} fill={P.textDim}>{(maxX * t).toFixed(0)}</text>
+              </g>)}
+              {/* Axis labels */}
+              <text x={325} y={355} textAnchor="middle" fontSize={10} fill={P.textMuted} fontWeight={600}>{gX.label}</text>
+              <text x={12} y={170} textAnchor="middle" fontSize={10} fill={P.textMuted} fontWeight={600} transform="rotate(-90,12,170)">{gY.label}</text>
+              {/* Bubbles */}
+              {fdd.map(d => {
+                const x = 60 + (gX.get(d) / maxX) * 530;
+                const y = 320 - (gY.get(d) / maxY) * 300;
+                const sz = 6 + (gS.get(d) / maxS) * 22;
+                const c = ZONE_COLORS[d.zone] || P.accent;
+                const isSel = selDists.includes(d.name);
+                return <g key={d.id}>
+                  <circle cx={x} cy={y} r={sz} fill={`${c}40`} stroke={isSel ? P.accent : c} strokeWidth={isSel ? 2.5 : 1} style={{ cursor: "pointer" }} onClick={() => setSelDists(prev => prev.includes(d.name) ? prev.filter(n => n !== d.name) : [...prev, d.name])} />
+                  {(sz > 12 || isSel) && <text x={x} y={y - sz - 3} textAnchor="middle" fontSize={8} fill={P.text} fontWeight={600}>{d.name.length > 10 ? d.name.slice(0, 8) + ".." : d.name}</text>}
+                </g>;
+              })}
+            </svg>
+            {/* Legend */}
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 8 }}>
+              {Object.entries(ZONE_COLORS).map(([zone, color]) => <div key={zone} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: P.textMuted }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />{zone}</div>)}
+            </div>
+          </div>
+
+          {/* Selected districts detail */}
+          {selDists.length > 0 && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: P.text }}>Selected districts ({selDists.length})</span>
+              <button onClick={() => setSelDists([])} style={{ fontSize: 10, color: P.textDim, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontFamily: "'DM Sans'" }}>Clear all</button>
+            </div>
+            <div style={{ overflowX: "auto" }}><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr>{["District", "Zone", gX.label, gY.label, gS.label].map(h => <th key={h} style={{ padding: "8px 12px", textAlign: h === "District" || h === "Zone" ? "left" : "right", color: P.textDim, fontSize: 10, fontWeight: 600, borderBottom: `1px solid ${P.border}`, textTransform: "uppercase" }}>{h}</th>)}</tr></thead>
+              <tbody>{fdd.filter(d => selDists.includes(d.name)).map(d => <tr key={d.id}>
+                <td style={{ padding: "8px 12px", fontWeight: 600, color: P.text, borderBottom: `1px solid ${P.border}` }}>{d.name}</td>
+                <td style={{ padding: "8px 12px", color: ZONE_COLORS[d.zone] || P.textMuted, borderBottom: `1px solid ${P.border}`, fontWeight: 600, fontSize: 11 }}>{d.zone}</td>
+                <td style={{ padding: "8px 12px", textAlign: "right", color: P.text, borderBottom: `1px solid ${P.border}` }}>{gX.get(d).toFixed(1)}</td>
+                <td style={{ padding: "8px 12px", textAlign: "right", color: P.text, borderBottom: `1px solid ${P.border}` }}>{gY.get(d).toFixed(1)}</td>
+                <td style={{ padding: "8px 12px", textAlign: "right", color: P.text, fontWeight: 700, borderBottom: `1px solid ${P.border}` }}>{gS.get(d).toLocaleString()}</td>
+              </tr>)}</tbody>
+            </table></div>
+          </div>}
+
+          {/* Analysis results */}
+          {analysisResult && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: P.green, marginBottom: 10 }}>Top 5 — {gX.label}</div>
+              {analysisResult.top5.map((d, i) => <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < 4 ? `1px solid ${P.border}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: "50%", background: P.accentGlow, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: P.accent }}>{i + 1}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: P.text }}>{d.name}</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: P.green }}>{gX.get(d).toFixed(1)}</span>
+              </div>)}
+            </div>
+            <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: P.red, marginBottom: 10 }}>Bottom 5 — {gX.label}</div>
+              {analysisResult.bot5.map((d, i) => <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < 4 ? `1px solid ${P.border}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#fef2f2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: P.red }}>{fdd.length - 4 + i}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: P.text }}>{d.name}</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: P.red }}>{gX.get(d).toFixed(1)}</span>
+              </div>)}
+            </div>
+          </div>}
+
+          {analysisResult && <div style={{ background: P.surface, border: `1px solid ${P.border}`, borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 8 }}>Correlation insight</div>
+            <div style={{ fontSize: 12, color: P.textMuted, lineHeight: 1.6 }}>
+              {gX.label} and {gY.label} show a <b style={{ color: Math.abs(r) > 0.7 ? P.green : Math.abs(r) > 0.4 ? P.amber : P.textDim }}>{analysisResult.corrStr} {r >= 0 ? "positive" : "negative"}</b> correlation (r = {analysisResult.r}).
+              {Math.abs(r) > 0.5 && r > 0 && ` Districts with higher ${gX.label.toLowerCase()} tend to also have higher ${gY.label.toLowerCase()}.`}
+              {Math.abs(r) > 0.5 && r < 0 && ` Districts with higher ${gX.label.toLowerCase()} tend to have lower ${gY.label.toLowerCase()}.`}
+              {Math.abs(r) <= 0.3 && ` These metrics appear largely independent of each other across districts.`}
+              {` The top performer in ${gX.label.toLowerCase()} is ${analysisResult.top5[0]?.name} at ${gX.get(analysisResult.top5[0]).toFixed(1)}, while ${analysisResult.bot5[0]?.name} is lowest at ${gX.get(analysisResult.bot5[0]).toFixed(1)}.`}
+            </div>
+            <button onClick={() => onAskAI && onAskAI(`Analyze the correlation between ${gX.label} and ${gY.label} across all districts. Top performers: ${analysisResult.top5.map(d => d.name).join(", ")}. Bottom performers: ${analysisResult.bot5.map(d => d.name).join(", ")}. Correlation r=${analysisResult.r}. What explains this pattern and what interventions would help?`)} style={{ marginTop: 12, padding: "8px 16px", borderRadius: 8, border: `1px solid ${P.accent}30`, background: P.accentGlow, color: P.accent, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Ask AI for deeper analysis →</button>
+          </div>}
+        </div>;
+      })()}
 
       {/* Alerts */}
       {/* Alerts tab removed — merged into dashboard banner */}
